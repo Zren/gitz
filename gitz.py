@@ -20,6 +20,10 @@ LOG_PATTERN = r'^([ \*\|\\\/]+)((\w{6,}) (\([^)]+\) )?(.+))?$'
 
 
 #---
+def log(*args):
+	print(*args) # Comment to hide debug log
+	return
+
 def applyTagForGroup(buf, match, group, tag):
 	start = match.start(group)
 	end = match.end(group)
@@ -59,19 +63,15 @@ class MonospaceView(Gtk.TextView):
 		line = buf.get_text(startIter, endIter, True)
 		return line
 
-	def log(self, *args):
-		print(*args)
-		return
-
 	def timeit(self, label=None, *args):
 		if label:
 			t2 = time.time()
 			d = t2 - self.t
-			self.log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
+			log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
 			self.t = t2
 		else:
 			self.t = time.time()
-			self.log()
+			log()
 
 
 
@@ -316,12 +316,26 @@ class App(Gtk.Application):
 		GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, self.quit)
 
 	def do_activate(self):
+		self.timeit()
 		self.win = MainWindow(self)
+		self.timeit('construct')
 		self.win.show_all()
+		self.timeit('show_all')
 		self.win.historyView.populate()
+		self.timeit('populate')
 
 	def do_startup(self):
 		Gtk.Application.do_startup(self)
+
+	def timeit(self, label=None, *args):
+		if label:
+			t2 = time.time()
+			d = t2 - self.t
+			log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
+			self.t = t2
+		else:
+			self.t = time.time()
+			log()
 
 
 

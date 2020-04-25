@@ -68,7 +68,8 @@ class HistoryView(MonospaceView):
 		buf = self.get_buffer()
 		self.tag_graph = buf.create_tag("graph", foreground="#1abc9c") # Normal
 		self.tag_sha = buf.create_tag("sha", foreground="#dfaf8f") # Orange / Color4
-		self.tag_head = buf.create_tag("head", foreground="#8cd0d3") # Cyan / Color7
+		self.tag_decorations = buf.create_tag("decorations", foreground="#dca3a3") # Red / Color2
+		self.tag_head = buf.create_tag("head", foreground="#93e0e3") # Cyan / Color7
 		self.tag_remote = buf.create_tag("remote", foreground="#dca3a3") # Red / Color2
 		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
@@ -98,8 +99,26 @@ class HistoryView(MonospaceView):
 		for match in re.finditer(LOG_PATTERN, self.getAllText(), re.MULTILINE):
 			applyTagForGroup(buf, match, 1, self.tag_graph)
 			applyTagForGroup(buf, match, 3, self.tag_sha)
-			applyTagForGroup(buf, match, 4, self.tag_head)
+			applyTagForGroup(buf, match, 4, self.tag_decorations)
 			# applyTagForGroup(buf, match, 5, self.tag_summary)
+
+			def highlightGroup(groupStart, subMatch, group, tag):
+				start = groupStart + subMatch.start(group)
+				end = groupStart + subMatch.end(group)
+				startIter = buf.get_iter_at_offset(start)
+				endIter = buf.get_iter_at_offset(end)
+				buf.apply_tag(tag, startIter, endIter)
+
+			if match.group(4):
+				groupStart = match.start(4)
+				for subMatch in re.finditer(r'(\(|, )(tag: .+?)(,|\))', match.group(4)):
+					highlightGroup(groupStart, subMatch, 2, self.tag_tag)
+				for subMatch in re.finditer(r'(\(|, )((HEAD ->) (.+?))(,|\))', match.group(4)):
+					highlightGroup(groupStart, subMatch, 3, self.tag_head)
+					highlightGroup(groupStart, subMatch, 4, self.tag_local)
+				for subMatch in re.finditer(r'(\(|, )([^\/]+)(,|\))', match.group(4)):
+					highlightGroup(groupStart, subMatch, 2, self.tag_local)
+
 
 
 

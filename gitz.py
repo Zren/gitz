@@ -40,6 +40,11 @@ class MonospaceView(Gtk.TextView):
 		self.set_top_margin(padding)
 		self.set_bottom_margin(padding)
 
+		textColor = Gdk.RGBA()
+		textColor.parse("#1abc9c")
+		self.override_color(Gtk.StateFlags.NORMAL, textColor)
+		# self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
+
 	def getAllText(self):
 		buf = self.get_buffer()
 		return buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
@@ -67,7 +72,7 @@ class HistoryView(MonospaceView):
 		self.tag_remote = buf.create_tag("remote", foreground="#dca3a3") # Red / Color2
 		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
-		self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
+		# self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
 		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")
 
 	def populate(self):
@@ -94,7 +99,7 @@ class HistoryView(MonospaceView):
 			applyTagForGroup(buf, match, 1, self.tag_graph)
 			applyTagForGroup(buf, match, 3, self.tag_sha)
 			applyTagForGroup(buf, match, 4, self.tag_head)
-			applyTagForGroup(buf, match, 5, self.tag_summary)
+			# applyTagForGroup(buf, match, 5, self.tag_summary)
 
 
 

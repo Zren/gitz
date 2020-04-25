@@ -22,6 +22,11 @@ class MonospaceView(Gtk.TextView):
 		Gtk.TextView.__init__(self)
 		self.set_monospace(True)
 		self.set_editable(False)
+		padding = 10
+		self.set_left_margin(padding)
+		self.set_right_margin(padding)
+		self.set_top_margin(padding)
+		self.set_bottom_margin(padding)
 
 	def getAllText(self):
 		buf = self.get_buffer()

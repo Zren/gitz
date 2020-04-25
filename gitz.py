@@ -59,14 +59,19 @@ class MonospaceView(Gtk.TextView):
 		line = buf.get_text(startIter, endIter, True)
 		return line
 
+	def log(self, *args):
+		print(*args)
+		return
+
 	def timeit(self, label=None, *args):
 		if label:
 			t2 = time.time()
 			d = t2 - self.t
-			print("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
+			self.log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
 			self.t = t2
 		else:
 			self.t = time.time()
+			self.log()
 
 
 
@@ -74,8 +79,11 @@ class HistoryView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
 		self.override_font(Pango.font_description_from_string('Monospace 10'))
+		self.tagsReady = False
 
 	def initTags(self):
+		if self.tagsReady:
+			return
 		buf = self.get_buffer()
 		self.tag_graph = buf.create_tag("graph", foreground="#1abc9c") # Normal
 		self.tag_sha = buf.create_tag("sha", foreground="#dfaf8f") # Orange / Color4
@@ -86,6 +94,7 @@ class HistoryView(MonospaceView):
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
 		# self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
 		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")
+		self.tagsReady = True
 
 	def populate(self):
 		self.timeit()
@@ -107,6 +116,7 @@ class HistoryView(MonospaceView):
 		# This is faster than get_buffer().set_text(logStdout)
 		# textBuffer = Gtk.TextBuffer()
 		# textBuffer.set_text(logStdout)
+		# self.tagsReady = False
 		# self.set_buffer(textBuffer)
 		# self.timeit('TextBuffer')
 
@@ -157,16 +167,23 @@ class CommitView(MonospaceView):
 		MonospaceView.__init__(self)
 		# self.set_wrap_mode(Gtk.WrapMode.WORD)
 		self.override_font(Pango.font_description_from_string('Monospace 13'))
+		self.tagsReady = False
+
+	def initTags(self):
+		if self.tagsReady:
+			return
 		buf = self.get_buffer()
 		self.tag_oldline = buf.create_tag("oldline", foreground="#dca3a3") # Red / Color2
 		self.tag_newline = buf.create_tag("newline", foreground="#72d5a3") # Green / Color3
 		self.tag_hunkheader = buf.create_tag("hunkheader", foreground="#a6acb9") # Light Gray
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
+		self.tagsReady = True
 
 	def selectSha(self, sha):
 		if sha == self.selectSha:
 			return
 
+		self.timeit()
 		cmd = [
 			'git',
 			'-C',
@@ -176,10 +193,20 @@ class CommitView(MonospaceView):
 		]
 		self.commitProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		commitStdout = self.commitProcess.stdout
+		self.timeit('process')
+
 		buf = self.get_buffer()
 		buf.set_text(commitStdout)
-		self.formatView()
+		self.timeit('set_text')
+
+		self.initTags()
+		self.timeit('initTags')
+
 		buf.place_cursor(buf.get_start_iter())
+		self.timeit('place_cursor')
+
+		self.formatView()
+		self.timeit('formatView')
 
 	def formatView(self):
 		buf = self.get_buffer()
@@ -255,7 +282,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
 
 	def onHistoryViewMoveCursor(self, buffer, data=None):
-		if not hasattr(self.historyView, 'tag_selected'):
+		if not self.historyView.tagsReady:
 			return # Not yet ready
 
 		line = self.historyView.getLineAt(buffer.props.cursor_position)

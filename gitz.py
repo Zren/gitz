@@ -148,7 +148,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
 	def __init__(self, app):
 		Gtk.Window.__init__(self, title="TextView Example", application=app)
-		self.set_default_size(1280, 720)
+		self.set_default_size(1800, 720)
+		self.set_position(Gtk.WindowPosition.CENTER)
 
 		# Force dark theme
 		settings = Gtk.Settings.get_default()

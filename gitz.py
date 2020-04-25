@@ -176,6 +176,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
 	def __init__(self, app):
 		Gtk.Window.__init__(self, title="gitz", application=app)
+		self.set_icon_name("git-gui")
 		self.set_default_size(1800, 720)
 		self.set_position(Gtk.WindowPosition.CENTER)
 

@@ -21,7 +21,7 @@ LOG_PATTERN = r'^([ \*\|\\\/]+)((\w{6,}) (\([^)]+\) )?(.+))?$'
 
 #---
 def log(*args):
-	print(*args) # Comment to hide debug log
+	# print(*args) # Comment to hide debug log
 	return
 
 def applyTagForGroup(buf, match, group, tag):

@@ -80,7 +80,7 @@ class HistoryView(MonospaceView):
 			# '--color',
 		]
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
-		logStdout = process.stdout
+		logStdout = process.stdout.strip()
 		buf = self.get_buffer()
 		buf.set_text(logStdout)
 		self.formatView()

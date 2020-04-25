@@ -15,7 +15,7 @@ cwdAbs = os.path.abspath(os.path.expanduser(cwd))
 
 
 
-LOG_PATTERN = r'^([ \*\|\\\/]+)((\w{7}) (\([^)]+\) )?(.+))?$'
+LOG_PATTERN = r'^([ \*\|\\\/]+)((\w{6,}) (\([^)]+\) )?(.+))?$'
 
 
 #---

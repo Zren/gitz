@@ -67,7 +67,7 @@ class HistoryView(MonospaceView):
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
 		self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
 
-	def populateLeftView(self):
+	def populate(self):
 		cmd = [
 			'git',
 			'-C',
@@ -120,9 +120,6 @@ class CommitView(MonospaceView):
 		]
 		self.commitProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		commitStdout = self.commitProcess.stdout
-		self.populateRightView(commitStdout)
-
-	def populateRightView(self, commitStdout):
 		self.get_buffer().set_text(commitStdout)
 		self.formatView()
 
@@ -184,7 +181,7 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.pane.set_position(600)
 		self.add(self.pane)
 
-		self.leftTextView.populateLeftView()
+		self.leftTextView.populate()
 
 
 	def on_left_move_cursor(self, buffer, data=None):

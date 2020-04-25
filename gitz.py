@@ -120,8 +120,10 @@ class CommitView(MonospaceView):
 		]
 		self.commitProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		commitStdout = self.commitProcess.stdout
-		self.get_buffer().set_text(commitStdout)
+		buf = self.get_buffer()
+		buf.set_text(commitStdout)
 		self.formatView()
+		buf.place_cursor(buf.get_start_iter())
 
 	def formatView(self):
 		buf = self.get_buffer()

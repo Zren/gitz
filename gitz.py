@@ -156,23 +156,23 @@ class MainWindow(Gtk.ApplicationWindow):
 		settings.set_property("gtk-application-prefer-dark-theme", True)
 
 		#--- Left
-		self.leftTextView = HistoryView()
-		leftTextBuffer = self.leftTextView.get_buffer()
-		leftTextBuffer.connect('notify::cursor-position', self.on_left_move_cursor)
+		self.historyView = HistoryView()
+		leftTextBuffer = self.historyView.get_buffer()
+		leftTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
 
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-		self.leftPane.add(self.leftTextView)
+		self.leftPane.add(self.historyView)
 
 		#--- Right
 		self.selectedSha = ''
 
-		self.rightTextView = CommitView()
-		self.rightTextBuffer = self.rightTextView.get_buffer()
+		self.commitView = CommitView()
+		self.rightTextBuffer = self.commitView.get_buffer()
 
 		self.rightPane = Gtk.ScrolledWindow()
 		self.rightPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-		self.rightPane.add(self.rightTextView)
+		self.rightPane.add(self.commitView)
 
 		#---
 		self.pane = Gtk.HPaned()
@@ -181,21 +181,20 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.pane.set_position(600)
 		self.add(self.pane)
 
-		self.leftTextView.populate()
+		self.historyView.populate()
 
 
-	def on_left_move_cursor(self, buffer, data=None):
-		line = self.leftTextView.getLineAt(buffer.props.cursor_position)
+	def onHistoryViewMoveCursor(self, buffer, data=None):
+		line = self.historyView.getLineAt(buffer.props.cursor_position)
 		match = re.match(LOG_PATTERN, line)
 		if match:
 			sha = match.group(3)
 			if sha:
-				self.rightTextView.selectSha(sha)
+				self.commitView.selectSha(sha)
 
 
 
 class App(Gtk.Application):
-
 	def __init__(self):
 		Gtk.Application.__init__(self)
 
@@ -205,6 +204,8 @@ class App(Gtk.Application):
 
 	def do_startup(self):
 		Gtk.Application.do_startup(self)
+
+
 
 app = App()
 exit_status = app.run(sys.argv)

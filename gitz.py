@@ -9,7 +9,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Pango
 
-cwd = '~/Code/plasma-applets/simpleweather/'
+cwd = os.getcwd()
 cwdAbs = os.path.abspath(os.path.expanduser(cwd))
 
 
@@ -77,7 +77,6 @@ class HistoryView(MonospaceView):
 			'--graph',
 			'--decorate',
 			'--all',
-			# '--color',
 		]
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		logStdout = process.stdout.strip()
@@ -203,7 +202,6 @@ class MainWindow(Gtk.ApplicationWindow):
 				def highlightGroup(group):
 					start = match.start(group)
 					end = match.end(group)
-					print(match, start, end)
 					startIter = historyBuf.get_iter_at_line_offset(lineNumber, start)
 					endIter = historyBuf.get_iter_at_line_offset(lineNumber, end)
 					historyBuf.apply_tag(self.historyView.tag_selected, startIter, endIter)

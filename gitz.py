@@ -127,10 +127,10 @@ class CommitView(MonospaceView):
 	def formatView(self):
 		buf = self.get_buffer()
 		allText = self.getAllText()
-		OLDLINE_PATTERN = r'^\-.+$'
+		OLDLINE_PATTERN = r'^\-.*$'
 		for match in re.finditer(OLDLINE_PATTERN, allText, re.MULTILINE):
 			applyTagForGroup(buf, match, 0, self.tag_oldline)
-		NEWLINE_PATTERN = r'^\+.+$'
+		NEWLINE_PATTERN = r'^\+.*$'
 		for match in re.finditer(NEWLINE_PATTERN, allText, re.MULTILINE):
 			applyTagForGroup(buf, match, 0, self.tag_newline)
 		HUNKHEADER_PATTERN = r'^@@.+$'

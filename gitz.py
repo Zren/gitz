@@ -2,12 +2,13 @@
 
 import os
 import sys
+import signal
 import subprocess
 import re
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Pango
+from gi.repository import Gtk, Gdk, GLib, Pango
 
 cwd = os.getcwd()
 cwdAbs = os.path.abspath(os.path.expanduser(cwd))
@@ -51,6 +52,8 @@ class MonospaceView(Gtk.TextView):
 		endIter.forward_to_line_end()
 		line = buf.get_text(startIter, endIter, True)
 		return line
+
+
 
 class HistoryView(MonospaceView):
 	def __init__(self):
@@ -185,6 +188,19 @@ class MainWindow(Gtk.ApplicationWindow):
 
 		self.historyView.populate()
 
+		#---
+		self.connect("key-press-event", self.onKeyPress)
+
+	def onKeyPress(self, widget, event, *args):
+		state = event.state
+		ctrl = (state & Gdk.ModifierType.CONTROL_MASK)
+		if ctrl and event.keyval == 113: # Ctrl+Q
+			self.close()
+		elif ctrl and event.keyval == 119: # Ctrl+W
+			self.close()
+		elif event.keyval == 65307: # Esc
+			self.close()
+
 
 	def onHistoryViewMoveCursor(self, buffer, data=None):
 		line = self.historyView.getLineAt(buffer.props.cursor_position)
@@ -215,6 +231,7 @@ class MainWindow(Gtk.ApplicationWindow):
 class App(Gtk.Application):
 	def __init__(self):
 		Gtk.Application.__init__(self)
+		GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, self.quit)
 
 	def do_activate(self):
 		self.win = MainWindow(self)

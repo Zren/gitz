@@ -58,7 +58,6 @@ class HistoryView(MonospaceView):
 		self.override_font(Pango.font_description_from_string('Monospace 10'))
 		#---
 		buf = self.get_buffer()
-		self.tag_bold = buf.create_tag("bold", weight=Pango.Weight.BOLD)
 		self.tag_graph = buf.create_tag("graph", foreground="#1abc9c") # Normal
 		self.tag_sha = buf.create_tag("sha", foreground="#dfaf8f") # Orange / Color4
 		self.tag_head = buf.create_tag("head", foreground="#8cd0d3") # Cyan / Color7
@@ -66,6 +65,7 @@ class HistoryView(MonospaceView):
 		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
 		self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
+		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")
 
 	def populate(self):
 		cmd = [
@@ -191,6 +191,23 @@ class MainWindow(Gtk.ApplicationWindow):
 		if match:
 			sha = match.group(3)
 			if sha:
+				historyBuf = self.historyView.get_buffer()
+
+				historyBuf.remove_tag(self.historyView.tag_selected, historyBuf.get_start_iter(), historyBuf.get_end_iter())
+
+				cursorIter = historyBuf.get_iter_at_offset(buffer.props.cursor_position)
+				lineNumber = cursorIter.get_line()
+
+				def highlightGroup(group):
+					start = match.start(group)
+					end = match.end(group)
+					print(match, start, end)
+					startIter = historyBuf.get_iter_at_line_offset(lineNumber, start)
+					endIter = historyBuf.get_iter_at_line_offset(lineNumber, end)
+					historyBuf.apply_tag(self.historyView.tag_selected, startIter, endIter)
+				highlightGroup(3)
+
+
 				self.commitView.selectSha(sha)
 
 

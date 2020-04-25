@@ -211,8 +211,6 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.pane.set_position(600)
 		self.add(self.pane)
 
-		self.historyView.populate()
-
 		#---
 		self.connect("key-press-event", self.onKeyPress)
 
@@ -261,6 +259,7 @@ class App(Gtk.Application):
 	def do_activate(self):
 		self.win = MainWindow(self)
 		self.win.show_all()
+		self.win.historyView.populate()
 
 	def do_startup(self):
 		Gtk.Application.do_startup(self)

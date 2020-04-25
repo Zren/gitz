@@ -15,8 +15,19 @@ cwdAbs = os.path.abspath(os.path.expanduser(cwd))
 
 
 LOG_PATTERN = r'^([ \*\|\\\/]+)((\w{7}) (\([^)]+\) )?(.+))?$'
-print(LOG_PATTERN)
 
+
+#---
+def applyTagForGroup(buf, match, group, tag):
+	start = match.start(group)
+	end = match.end(group)
+	# print(match, start, end)
+	startIter = buf.get_iter_at_offset(start)
+	endIter = buf.get_iter_at_offset(end)
+	buf.apply_tag(tag, startIter, endIter)
+
+
+#---
 class MonospaceView(Gtk.TextView):
 	def __init__(self):
 		Gtk.TextView.__init__(self)
@@ -44,6 +55,17 @@ class MonospaceView(Gtk.TextView):
 class HistoryView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
+		self.override_font(Pango.font_description_from_string('Monospace 10'))
+		#---
+		buf = self.get_buffer()
+		self.tag_bold = buf.create_tag("bold", weight=Pango.Weight.BOLD)
+		self.tag_graph = buf.create_tag("graph", foreground="#1abc9c") # Normal
+		self.tag_sha = buf.create_tag("sha", foreground="#dfaf8f") # Orange / Color4
+		self.tag_head = buf.create_tag("head", foreground="#8cd0d3") # Cyan / Color7
+		self.tag_remote = buf.create_tag("remote", foreground="#dca3a3") # Red / Color2
+		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
+		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
+		self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
 
 	def populateLeftView(self):
 		cmd = [
@@ -59,33 +81,18 @@ class HistoryView(MonospaceView):
 		]
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		logStdout = process.stdout
-		self.get_buffer().set_text(logStdout)
-		self.formatLeftView()
-
-	def formatLeftView(self):
 		buf = self.get_buffer()
-		self.tag_bold = buf.create_tag("bold", weight=Pango.Weight.BOLD)
-		self.tag_graph = buf.create_tag("graph", foreground="#1abc9c") # Normal
-		self.tag_sha = buf.create_tag("sha", foreground="#dfaf8f") # Orange / Color4
-		self.tag_head = buf.create_tag("head", foreground="#8cd0d3") # Cyan / Color7
-		self.tag_remote = buf.create_tag("remote", foreground="#dca3a3") # Red / Color2
-		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
-		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
-		self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
+		buf.set_text(logStdout)
+		self.formatView()
+		buf.place_cursor(buf.get_start_iter())
 
-		def applyTagForGroup(match, group, tag):
-			start = match.start(group)
-			end = match.end(group)
-			print(match, start, end)
-			startIter = buf.get_iter_at_offset(start)
-			endIter = buf.get_iter_at_offset(end)
-			buf.apply_tag(tag, startIter, endIter)
-
+	def formatView(self):
+		buf = self.get_buffer()
 		for match in re.finditer(LOG_PATTERN, self.getAllText(), re.MULTILINE):
-			applyTagForGroup(match, 1, self.tag_graph)
-			applyTagForGroup(match, 3, self.tag_sha)
-			applyTagForGroup(match, 4, self.tag_head)
-			applyTagForGroup(match, 5, self.tag_summary)
+			applyTagForGroup(buf, match, 1, self.tag_graph)
+			applyTagForGroup(buf, match, 3, self.tag_sha)
+			applyTagForGroup(buf, match, 4, self.tag_head)
+			applyTagForGroup(buf, match, 5, self.tag_summary)
 
 
 
@@ -93,6 +100,12 @@ class CommitView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
 		# self.set_wrap_mode(Gtk.WrapMode.WORD)
+		self.override_font(Pango.font_description_from_string('Monospace 13'))
+		buf = self.get_buffer()
+		self.tag_oldline = buf.create_tag("oldline", foreground="#dca3a3") # Red / Color2
+		self.tag_newline = buf.create_tag("newline", foreground="#72d5a3") # Green / Color3
+		self.tag_hunkheader = buf.create_tag("hunkheader", foreground="#a6acb9") # Light Gray
+		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
 
 	def selectSha(self, sha):
 		if sha == self.selectSha:
@@ -111,6 +124,26 @@ class CommitView(MonospaceView):
 
 	def populateRightView(self, commitStdout):
 		self.get_buffer().set_text(commitStdout)
+		self.formatView()
+
+	def formatView(self):
+		buf = self.get_buffer()
+		allText = self.getAllText()
+		OLDLINE_PATTERN = r'^\-.+$'
+		for match in re.finditer(OLDLINE_PATTERN, allText, re.MULTILINE):
+			applyTagForGroup(buf, match, 0, self.tag_oldline)
+		NEWLINE_PATTERN = r'^\+.+$'
+		for match in re.finditer(NEWLINE_PATTERN, allText, re.MULTILINE):
+			applyTagForGroup(buf, match, 0, self.tag_newline)
+		HUNKHEADER_PATTERN = r'^@@.+$'
+		for match in re.finditer(HUNKHEADER_PATTERN, allText, re.MULTILINE):
+			applyTagForGroup(buf, match, 0, self.tag_hunkheader)
+		COMMITHEADER_PATTERN = r'^(commit ((.|\n)+?))\ndiff'
+		for match in re.finditer(COMMITHEADER_PATTERN, allText):
+			applyTagForGroup(buf, match, 1, self.tag_hunkheader)
+		DIFF_PATTERN = r'\n(diff ((.|\n)+?))\n(\-\-\-|\+\+\+)'
+		for match in re.finditer(DIFF_PATTERN, allText):
+			applyTagForGroup(buf, match, 1, self.tag_diffheader)
 
 
 
@@ -129,7 +162,6 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.leftTextView = HistoryView()
 		leftTextBuffer = self.leftTextView.get_buffer()
 		leftTextBuffer.connect('notify::cursor-position', self.on_left_move_cursor)
-		self.leftTextView.populateLeftView()
 
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -152,15 +184,15 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.pane.set_position(600)
 		self.add(self.pane)
 
+		self.leftTextView.populateLeftView()
+
 
 	def on_left_move_cursor(self, buffer, data=None):
 		line = self.leftTextView.getLineAt(buffer.props.cursor_position)
-		print(line)
 		match = re.match(LOG_PATTERN, line)
 		if match:
 			sha = match.group(3)
 			if sha:
-				print(sha)
 				self.rightTextView.selectSha(sha)
 
 

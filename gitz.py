@@ -5,6 +5,7 @@ import sys
 import signal
 import subprocess
 import re
+import time
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -58,13 +59,23 @@ class MonospaceView(Gtk.TextView):
 		line = buf.get_text(startIter, endIter, True)
 		return line
 
+	def timeit(self, label=None, *args):
+		if label:
+			t2 = time.time()
+			d = t2 - self.t
+			print("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
+			self.t = t2
+		else:
+			self.t = time.time()
+
 
 
 class HistoryView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
 		self.override_font(Pango.font_description_from_string('Monospace 10'))
-		#---
+
+	def initTags(self):
 		buf = self.get_buffer()
 		self.tag_graph = buf.create_tag("graph", foreground="#1abc9c") # Normal
 		self.tag_sha = buf.create_tag("sha", foreground="#dfaf8f") # Orange / Color4
@@ -77,6 +88,7 @@ class HistoryView(MonospaceView):
 		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")
 
 	def populate(self):
+		self.timeit()
 		cmd = [
 			'git',
 			'-C',
@@ -88,11 +100,29 @@ class HistoryView(MonospaceView):
 			'--all',
 		]
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+		self.timeit('process')
 		logStdout = process.stdout.strip()
+		self.timeit('strip')
+
+		# This is faster than get_buffer().set_text(logStdout)
+		# textBuffer = Gtk.TextBuffer()
+		# textBuffer.set_text(logStdout)
+		# self.set_buffer(textBuffer)
+		# self.timeit('TextBuffer')
+
 		buf = self.get_buffer()
 		buf.set_text(logStdout)
-		self.formatView()
+		self.timeit('set_text')
+
+		self.initTags()
+		self.timeit('initTags')
+
+		buf = self.get_buffer()
 		buf.place_cursor(buf.get_start_iter())
+		self.timeit('place_cursor')
+
+		self.formatView()
+		self.timeit('formatView')
 
 	def formatView(self):
 		buf = self.get_buffer()
@@ -187,8 +217,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
 		#--- Left
 		self.historyView = HistoryView()
-		leftTextBuffer = self.historyView.get_buffer()
-		leftTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
+		historyTextBuffer = self.historyView.get_buffer()
+		historyTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
 
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -198,7 +228,6 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.selectedSha = ''
 
 		self.commitView = CommitView()
-		self.rightTextBuffer = self.commitView.get_buffer()
 
 		self.rightPane = Gtk.ScrolledWindow()
 		self.rightPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -226,6 +255,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
 
 	def onHistoryViewMoveCursor(self, buffer, data=None):
+		if not hasattr(self.historyView, 'tag_selected'):
+			return # Not yet ready
+
 		line = self.historyView.getLineAt(buffer.props.cursor_position)
 		match = re.match(LOG_PATTERN, line)
 		if match:

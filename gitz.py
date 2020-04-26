@@ -32,6 +32,17 @@ def applyTagForGroup(buf, match, group, tag):
 	endIter = buf.get_iter_at_offset(end)
 	buf.apply_tag(tag, startIter, endIter)
 
+def rgba(hexstr):
+	c = Gdk.RGBA()
+	c.parse(hexstr)
+	return c
+
+def lerpColor(c1, c2, x):
+	red = c1.red + (c2.red - c1.red) * x
+	green = c1.green + (c2.green - c1.green) * x
+	blue = c1.blue + (c2.blue - c1.blue) * x
+	return Gdk.RGBA(red, green, blue)
+
 
 #---
 class MonospaceView(Gtk.TextView):
@@ -173,8 +184,19 @@ class CommitView(MonospaceView):
 		if self.tagsReady:
 			return
 		buf = self.get_buffer()
+
+		viewBg = rgba("#2d2d2d") # Adwaita Dark
+
 		self.tag_oldline = buf.create_tag("oldline", foreground="#dca3a3") # Red / Color2
+		oldlineFg = self.tag_oldline.get_property('foreground-rgba')
+		oldlineBg = lerpColor(viewBg, oldlineFg, 0.1)
+		self.tag_oldline.set_property('paragraph-background', oldlineBg.to_string())
+
 		self.tag_newline = buf.create_tag("newline", foreground="#72d5a3") # Green / Color3
+		newlineFg = self.tag_newline.get_property('foreground-rgba')
+		newlineBg = lerpColor(viewBg, newlineFg, 0.1)
+		self.tag_newline.set_property('paragraph-background', newlineBg.to_string())
+
 		self.tag_hunkheader = buf.create_tag("hunkheader", foreground="#a6acb9") # Light Gray
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
 		self.tagsReady = True

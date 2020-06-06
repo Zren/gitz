@@ -269,9 +269,17 @@ class MainWindow(Gtk.ApplicationWindow):
 		historyTextBuffer = self.historyView.get_buffer()
 		historyTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
 
+		self.filterEntry = Gtk.Entry()
+		self.filterEntry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, 'search')
+		self.filterEntry.set_placeholder_text('Search')
+
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.leftPane.add(self.historyView)
+
+		self.leftPaneBox = Gtk.VBox()
+		self.leftPaneBox.pack_start(self.filterEntry, expand=False, fill=True, padding=0)
+		self.leftPaneBox.pack_start(self.leftPane, expand=True, fill=True, padding=0)
 
 		#--- Right
 		self.selectedSha = ''
@@ -284,7 +292,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
 		#---
 		self.pane = Gtk.HPaned()
-		self.pane.add1(self.leftPane)
+		self.pane.add1(self.leftPaneBox)
 		self.pane.add2(self.rightPane)
 		self.pane.set_position(600)
 		self.add(self.pane)

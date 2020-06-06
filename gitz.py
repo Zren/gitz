@@ -302,7 +302,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
 		self.filterEntry = Gtk.Entry()
 		self.filterEntry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, 'search')
-		self.filterEntry.set_placeholder_text('Search')
+		self.filterEntry.set_placeholder_text('Search (Ctrl+F)')
 		self.filterEntry.connect('notify::text', self.onHistoryViewFilterChanged)
 
 		self.leftPane = Gtk.ScrolledWindow()
@@ -332,6 +332,9 @@ class MainWindow(Gtk.ApplicationWindow):
 		#---
 		self.connect("key-press-event", self.onKeyPress)
 
+		#---
+		self.set_focus(self.historyView)
+
 	def onKeyPress(self, widget, event, *args):
 		state = event.state
 		ctrl = (state & Gdk.ModifierType.CONTROL_MASK)
@@ -339,8 +342,13 @@ class MainWindow(Gtk.ApplicationWindow):
 			self.close()
 		elif ctrl and event.keyval == 119: # Ctrl+W
 			self.close()
+		elif ctrl and event.keyval == 102: # Ctrl+F
+			self.set_focus(self.filterEntry)
 		elif event.keyval == 65307: # Esc
-			self.close()
+			if self.get_focus() == self.filterEntry:
+				self.set_focus(self.historyView)
+			else:
+				self.close()
 
 	def onHistoryViewFilterChanged(self, buffer, data=None):
 		if not self.historyView.tagsReady:

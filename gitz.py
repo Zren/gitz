@@ -347,6 +347,7 @@ class MainWindow(Gtk.ApplicationWindow):
 		elif event.keyval == 65307: # Esc
 			if self.get_focus() == self.filterEntry:
 				self.set_focus(self.historyView)
+				self.filterEntry.set_text('') # Clear filter
 			else:
 				self.close()
 

@@ -91,6 +91,9 @@ class HistoryView(MonospaceView):
 		MonospaceView.__init__(self)
 		self.override_font(Pango.font_description_from_string('Monospace 10'))
 		self.tagsReady = False
+		self.logStdout = ''
+		self.currentFilter = ''
+		self.applyFilterTimer = 0
 
 	def initTags(self):
 		if self.tagsReady:
@@ -121,18 +124,21 @@ class HistoryView(MonospaceView):
 		]
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		self.timeit('process')
-		logStdout = process.stdout.strip()
+		self.logStdout = process.stdout.strip()
 		self.timeit('strip')
 
+		self.setAndFormatText(self.logStdout)
+
+	def setAndFormatText(self, text):
 		# This is faster than get_buffer().set_text(logStdout)
 		# textBuffer = Gtk.TextBuffer()
-		# textBuffer.set_text(logStdout)
+		# textBuffer.set_text(text)
 		# self.tagsReady = False
 		# self.set_buffer(textBuffer)
 		# self.timeit('TextBuffer')
 
 		buf = self.get_buffer()
-		buf.set_text(logStdout)
+		buf.set_text(text)
 		self.timeit('set_text')
 
 		self.initTags()
@@ -170,6 +176,32 @@ class HistoryView(MonospaceView):
 				for subMatch in re.finditer(r'(\(|, )([^\/]+)(,|\))', match.group(4)):
 					highlightGroup(groupStart, subMatch, 2, self.tag_local)
 
+	#---
+	def applyFilter(self, newFilter):
+		if newFilter == '':
+			self.setAndFormatText(self.logStdout)
+
+		else:
+			# We need to re-populate then filter
+			filteredLines = []
+			for line in self.logStdout.splitlines():
+				if newFilter in line:
+					filteredLines.append(line)
+			self.setAndFormatText('\n'.join(filteredLines))
+
+		self.currentFilter = newFilter
+
+		self.applyFilterTimer = 0
+		return False # Cancel applyFilterTimer interval
+
+	def resetApplyFilterTimer(self):
+		if self.applyFilterTimer != 0:
+			GLib.source_remove(self.applyFilterTimer)
+			self.applyFilterTimer = 0
+
+	def debouncedApplyFilter(self, newFilter):
+		self.resetApplyFilterTimer()
+		self.applyFilterTimer = GLib.timeout_add(400, self.applyFilter, newFilter)
 
 
 
@@ -252,7 +284,6 @@ class CommitView(MonospaceView):
 
 
 class MainWindow(Gtk.ApplicationWindow):
-
 	def __init__(self, app):
 		Gtk.Window.__init__(self, title="gitz", application=app)
 		self.set_icon_name("git-gui")
@@ -272,6 +303,7 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.filterEntry = Gtk.Entry()
 		self.filterEntry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, 'search')
 		self.filterEntry.set_placeholder_text('Search')
+		self.filterEntry.connect('notify::text', self.onHistoryViewFilterChanged)
 
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -310,6 +342,12 @@ class MainWindow(Gtk.ApplicationWindow):
 		elif event.keyval == 65307: # Esc
 			self.close()
 
+	def onHistoryViewFilterChanged(self, buffer, data=None):
+		if not self.historyView.tagsReady:
+			return # Not yet ready
+
+		newFilter = self.filterEntry.get_text()
+		self.historyView.debouncedApplyFilter(newFilter)
 
 	def onHistoryViewMoveCursor(self, buffer, data=None):
 		if not self.historyView.tagsReady:

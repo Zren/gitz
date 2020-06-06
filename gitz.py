@@ -63,7 +63,7 @@ class MonospaceView(Gtk.TextView):
 
 	def getAllText(self):
 		buf = self.get_buffer()
-		return buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
+		return buf.get_text(buf.get_start_iter(), buf.get_end_iter(), include_hidden_chars=True)
 
 	def getLineAt(self, offset):
 		buf = self.get_buffer()
@@ -71,7 +71,7 @@ class MonospaceView(Gtk.TextView):
 		startIter = buf.get_iter_at_line(startIter.get_line())
 		endIter = startIter.copy()
 		endIter.forward_to_line_end()
-		line = buf.get_text(startIter, endIter, True)
+		line = buf.get_text(startIter, endIter, include_hidden_chars=True)
 		return line
 
 	def timeit(self, label=None, *args):

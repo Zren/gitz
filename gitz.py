@@ -220,6 +220,8 @@ class CommitView(MonospaceView):
 		self.override_font(Pango.font_description_from_string('Monospace 13'))
 		self.tagsReady = False
 		self.dirPath = None
+		self.currentSha = ''
+		self.showingAll = False
 
 	def initTags(self):
 		if self.tagsReady:
@@ -253,8 +255,8 @@ class CommitView(MonospaceView):
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
 
-	def selectSha(self, sha):
-		if sha == self.selectSha:
+	def selectSha(self, sha, showAll=False):
+		if sha == self.currentSha and showAll == self.showingAll:
 			return
 
 		self.timeit()
@@ -266,7 +268,9 @@ class CommitView(MonospaceView):
 			sha,
 			'--patch-with-stat',
 		]
-		if self.dirPath is not None:
+		if self.dirPath is None:
+			showAll = True
+		if self.dirPath is not None and not showAll:
 			cmd += [
 				'--relative',
 				self.dirPath,
@@ -288,6 +292,12 @@ class CommitView(MonospaceView):
 
 		self.formatView()
 		self.timeit('formatView')
+
+		self.currentSha = sha
+		self.showingAll = showAll
+
+	def showAll(self):
+		self.selectSha(self.currentSha, showAll=True)
 
 	def formatView(self):
 		buf = self.get_buffer()
@@ -356,18 +366,23 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.leftPaneBox.pack_start(self.leftPane, expand=True, fill=True, padding=0)
 
 		#--- Right
-		self.selectedSha = ''
-
 		self.commitView = CommitView()
 
 		self.rightPane = Gtk.ScrolledWindow()
 		self.rightPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.rightPane.add(self.commitView)
 
+		self.showAllButton = Gtk.Button.new_with_label("Show Full Commit")
+		self.showAllButton.connect('clicked', self.onCommitViewShowAll)
+
+		self.rightPaneBox = Gtk.VBox()
+		self.rightPaneBox.pack_start(self.rightPane, expand=True, fill=True, padding=0)
+		self.rightPaneBox.pack_start(self.showAllButton, expand=False, fill=True, padding=0)
+
 		#---
 		self.pane = Gtk.HPaned()
 		self.pane.add1(self.leftPaneBox)
-		self.pane.add2(self.rightPane)
+		self.pane.add2(self.rightPaneBox)
 		self.pane.set_position(600)
 		self.add(self.pane)
 
@@ -405,6 +420,10 @@ class MainWindow(Gtk.ApplicationWindow):
 		newFilter = self.filterEntry.get_text()
 		self.historyView.debouncedApplyFilter(newFilter)
 
+	def onCommitViewShowAll(self, button):
+		self.commitView.showAll()
+		self.showAllButton.set_visible(False)
+
 	def onHistoryViewMoveCursor(self, buffer, data=None):
 		if not self.historyView.tagsReady:
 			return # Not yet ready
@@ -431,6 +450,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
 
 				self.commitView.selectSha(sha)
+				self.showAllButton.set_visible(not self.commitView.showingAll)
 
 
 

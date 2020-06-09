@@ -9,7 +9,7 @@ import time
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib, Pango
+from gi.repository import Gtk, Gdk, Gio, GLib, Pango
 
 cwd = os.getcwd()
 cwdAbs = os.path.abspath(os.path.expanduser(cwd))
@@ -94,6 +94,7 @@ class HistoryView(MonospaceView):
 		self.logStdout = ''
 		self.currentFilter = ''
 		self.applyFilterTimer = 0
+		self.dirPath = None
 
 	def initTags(self):
 		if self.tagsReady:
@@ -110,6 +111,9 @@ class HistoryView(MonospaceView):
 		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")
 		self.tagsReady = True
 
+	def setDirPath(self, dirPath):
+		self.dirPath = dirPath
+
 	def populate(self):
 		self.timeit()
 		cmd = [
@@ -122,6 +126,10 @@ class HistoryView(MonospaceView):
 			'--decorate',
 			'--all',
 		]
+
+		if self.dirPath != None:
+			cmd.append(self.dirPath)
+
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		self.timeit('process')
 		self.logStdout = process.stdout.strip()
@@ -335,6 +343,10 @@ class MainWindow(Gtk.ApplicationWindow):
 		#---
 		self.set_focus(self.historyView)
 
+	def setDirPath(self, dirPath):
+		self.historyView.setDirPath(dirPath)
+		self.set_title("gitz - {}".format(dirPath))
+
 	def onKeyPress(self, widget, event, *args):
 		state = event.state
 		ctrl = (state & Gdk.ModifierType.CONTROL_MASK)
@@ -389,17 +401,30 @@ class MainWindow(Gtk.ApplicationWindow):
 
 class App(Gtk.Application):
 	def __init__(self):
-		Gtk.Application.__init__(self)
+		Gtk.Application.__init__(self, flags=Gio.ApplicationFlags.HANDLES_OPEN)
 		GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, self.quit)
+		self.dirPath = None
 
 	def do_activate(self):
 		self.timeit()
 		self.win = MainWindow(self)
+		if self.dirPath is not None:
+			self.win.setDirPath(self.dirPath)
 		self.timeit('construct')
 		self.win.show_all()
 		self.timeit('show_all')
 		self.win.historyView.populate()
 		self.timeit('populate')
+
+	# Note: The docs mention it's (self, files, hints) but in reality it's (self, files, n_files, hints).
+	# The doc text mentions a n_files argument, but it's not mentioned in the argument list.
+	# I used (self, *args) and print(args) to confirm this.
+	# https://lazka.github.io/pgi-docs/Gio-2.0/classes/Application.html#Gio.Application.do_open
+	def do_open(self, files, n_files, hints):
+		if n_files >= 1:
+			self.dirPath = files[0].get_path()
+			print('do_open', self.dirPath)
+			self.activate()
 
 	def do_startup(self):
 		Gtk.Application.do_startup(self)

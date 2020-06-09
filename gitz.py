@@ -219,6 +219,7 @@ class CommitView(MonospaceView):
 		# self.set_wrap_mode(Gtk.WrapMode.WORD)
 		self.override_font(Pango.font_description_from_string('Monospace 13'))
 		self.tagsReady = False
+		self.dirPath = None
 
 	def initTags(self):
 		if self.tagsReady:
@@ -241,6 +242,9 @@ class CommitView(MonospaceView):
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
 		self.tagsReady = True
 
+	def setDirPath(self, dirPath):
+		self.dirPath = dirPath
+
 	def selectSha(self, sha):
 		if sha == self.selectSha:
 			return
@@ -253,6 +257,12 @@ class CommitView(MonospaceView):
 			'show',
 			sha,
 		]
+		if self.dirPath is not None:
+			cmd += [
+				'--relative',
+				self.dirPath,
+			]
+
 		self.commitProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 		commitStdout = self.commitProcess.stdout
 		self.timeit('process')
@@ -345,6 +355,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
 	def setDirPath(self, dirPath):
 		self.historyView.setDirPath(dirPath)
+		self.commitView.setDirPath(dirPath)
 		self.set_title("gitz - {}".format(dirPath))
 
 	def onKeyPress(self, widget, event, *args):

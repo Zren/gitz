@@ -228,6 +228,13 @@ class CommitView(MonospaceView):
 
 		viewBg = rgba("#2d2d2d") # Adwaita Dark
 
+		self.tag_commitstat = buf.create_tag("commitstat", foreground="#a6acb9") # Light Gray
+		commitstatFg = self.tag_commitstat.get_property('foreground-rgba')
+		commitstatBg = lerpColor(viewBg, commitstatFg, 0.1)
+		self.tag_commitstat.set_property('paragraph-background', commitstatBg.to_string())
+
+		self.tag_statfilename = buf.create_tag("statfilename", weight=Pango.Weight.BOLD)
+
 		self.tag_oldline = buf.create_tag("oldline", foreground="#dca3a3") # Red / Color2
 		oldlineFg = self.tag_oldline.get_property('foreground-rgba')
 		oldlineBg = lerpColor(viewBg, oldlineFg, 0.1)
@@ -240,6 +247,7 @@ class CommitView(MonospaceView):
 
 		self.tag_hunkheader = buf.create_tag("hunkheader", foreground="#a6acb9") # Light Gray
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
+
 		self.tagsReady = True
 
 	def setDirPath(self, dirPath):
@@ -256,6 +264,7 @@ class CommitView(MonospaceView):
 			cwdAbs,
 			'show',
 			sha,
+			'--patch-with-stat',
 		]
 		if self.dirPath is not None:
 			cmd += [
@@ -292,9 +301,24 @@ class CommitView(MonospaceView):
 		HUNKHEADER_PATTERN = r'^@@.+$'
 		for match in re.finditer(HUNKHEADER_PATTERN, allText, re.MULTILINE):
 			applyTagForGroup(buf, match, 0, self.tag_hunkheader)
-		COMMITHEADER_PATTERN = r'^(commit ((.|\n)+?))\ndiff'
+		COMMITHEADER_PATTERN = r'^(commit ((.|\n)+?))(\n(---\n)((.|\n)+?))?\ndiff'
 		for match in re.finditer(COMMITHEADER_PATTERN, allText):
+			# The stat section starts with --- which matches the oldline regex,
+			# so remove the oldline tag in the hunkheader.
+			startIter = buf.get_iter_at_offset(match.start(4))
+			endIter = buf.get_iter_at_offset(match.end(4))
+			buf.remove_tag(self.tag_oldline, startIter, endIter)
+
 			applyTagForGroup(buf, match, 1, self.tag_hunkheader)
+			applyTagForGroup(buf, match, 5, self.tag_hunkheader)
+			applyTagForGroup(buf, match, 6, self.tag_commitstat)
+
+			statFilePattern = re.compile(r' (.+?)\s+\|\s+(\d+) (\+*)(\-*)')
+			for statFileMatch in statFilePattern.finditer(allText, match.start(6), match.end(6)):
+				applyTagForGroup(buf, statFileMatch, 1, self.tag_statfilename)
+				applyTagForGroup(buf, statFileMatch, 3, self.tag_newline)
+				applyTagForGroup(buf, statFileMatch, 4, self.tag_oldline)
+
 		DIFF_PATTERN = r'\n(diff ((.|\n)+?))\n(\-\-\-|\+\+\+)'
 		for match in re.finditer(DIFF_PATTERN, allText):
 			applyTagForGroup(buf, match, 1, self.tag_diffheader)

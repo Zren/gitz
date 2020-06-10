@@ -390,7 +390,7 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.connect("key-press-event", self.onKeyPress)
 
 		#---
-		self.set_focus(self.historyView)
+		self.historyView.grab_focus()
 
 	def setDirPath(self, dirPath):
 		self.historyView.setDirPath(dirPath)
@@ -405,10 +405,10 @@ class MainWindow(Gtk.ApplicationWindow):
 		elif ctrl and event.keyval == 119: # Ctrl+W
 			self.close()
 		elif ctrl and event.keyval == 102: # Ctrl+F
-			self.set_focus(self.filterEntry)
+			self.filterEntry.grab_focus()
 		elif event.keyval == 65307: # Esc
 			if self.get_focus() == self.filterEntry:
-				self.set_focus(self.historyView)
+				self.historyView.grab_focus()
 				self.filterEntry.set_text('') # Clear filter
 			else:
 				self.close()

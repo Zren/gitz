@@ -311,7 +311,7 @@ class CommitView(MonospaceView):
 		HUNKHEADER_PATTERN = r'^@@.+$'
 		for match in re.finditer(HUNKHEADER_PATTERN, allText, re.MULTILINE):
 			applyTagForGroup(buf, match, 0, self.tag_hunkheader)
-		COMMITHEADER_PATTERN = r'^(commit ((.|\n)+?))(\n(---\n)((.|\n)+?))?\ndiff'
+		COMMITHEADER_PATTERN = r'^(commit ((.|\n)+?))(\n(---\n)((.|\n)+?))?(\ndiff|$)'
 		for match in re.finditer(COMMITHEADER_PATTERN, allText):
 			# The stat section starts with --- which matches the oldline regex,
 			# so remove the oldline tag in the hunkheader.

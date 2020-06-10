@@ -334,6 +334,12 @@ class CommitView(MonospaceView):
 			applyTagForGroup(buf, match, 1, self.tag_diffheader)
 
 
+class HistoryFilterEntry(Gtk.Entry):
+	def __init__(self):
+		Gtk.Entry.__init__(self)
+		self.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, 'search')
+		self.set_placeholder_text('Search (Ctrl+F)')
+
 
 class MainWindow(Gtk.ApplicationWindow):
 	def __init__(self, app):
@@ -352,9 +358,7 @@ class MainWindow(Gtk.ApplicationWindow):
 		historyTextBuffer = self.historyView.get_buffer()
 		historyTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
 
-		self.filterEntry = Gtk.Entry()
-		self.filterEntry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, 'search')
-		self.filterEntry.set_placeholder_text('Search (Ctrl+F)')
+		self.filterEntry = HistoryFilterEntry()
 		self.filterEntry.connect('notify::text', self.onHistoryViewFilterChanged)
 
 		self.leftPane = Gtk.ScrolledWindow()

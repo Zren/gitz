@@ -152,12 +152,34 @@ class HistoryView(MonospaceView):
 		self.initTags()
 		self.timeit('initTags')
 
-		buf = self.get_buffer()
-		buf.place_cursor(buf.get_start_iter())
+		self.selectHead()
 		self.timeit('place_cursor')
 
 		self.formatView()
 		self.timeit('formatView')
+
+	def selectHead(self):
+		buf = self.get_buffer()
+		for match in re.finditer(LOG_PATTERN, self.getAllText(), re.MULTILINE):
+			if match.group(4):
+				groupStart = match.start(4)
+				for subMatch in re.finditer(r'(\(|, )(HEAD)( -> (.+?))?(,|\))', match.group(4)):
+					start = groupStart + subMatch.start(0)
+					startIter = buf.get_iter_at_offset(start)
+					buf.place_cursor(startIter)
+
+					# Scroll to cursor doesn't work this early it seems.
+					self.scroll_to_iter(
+						startIter,
+						within_margin=0.0,
+						use_align=True,
+						xalign=0.0, # Left Align
+						yalign=0.0, # Top Align
+					)
+					return
+
+		# Could not find HEAD, select start of buffer.
+		buf.place_cursor(buf.get_start_iter())
 
 	def formatView(self):
 		buf = self.get_buffer()

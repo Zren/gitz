@@ -24,9 +24,9 @@ def log(*args):
 	# print(*args) # Comment to hide debug log
 	return
 
-def applyTagForGroup(buf, match, group, tag):
-	start = match.start(group)
-	end = match.end(group)
+def applyTagForGroup(buf, match, group, tag, searchOffset=0):
+	start = searchOffset + match.start(group)
+	end = searchOffset + match.end(group)
 	# print(match, start, end)
 	startIter = buf.get_iter_at_offset(start)
 	endIter = buf.get_iter_at_offset(end)
@@ -73,6 +73,16 @@ class MonospaceView(Gtk.TextView):
 		endIter.forward_to_line_end()
 		line = buf.get_text(startIter, endIter, include_hidden_chars=True)
 		return line
+
+	def iterLines(self, y1, y2):
+		buf = self.get_buffer()
+		for y in range(y1, y2+1):
+			startIter = buf.get_iter_at_line(y)
+			endIter = startIter.copy()
+			endIter.forward_to_line_end()
+			text = buf.get_text(startIter, endIter, include_hidden_chars=True)
+			yield text, startIter, endIter, y
+
 
 	def timeit(self, label=None, *args):
 		if label:
@@ -155,7 +165,7 @@ class HistoryView(MonospaceView):
 		self.selectHead()
 		self.timeit('place_cursor')
 
-		self.formatView()
+		# self.formatView()
 		self.timeit('formatView')
 
 	def selectHead(self):
@@ -244,6 +254,8 @@ class CommitView(MonospaceView):
 		self.dirPath = None
 		self.currentSha = ''
 		self.showingAll = False
+		self.lineFormattedMap = {}
+		self.yscoll = None
 
 	def initTags(self):
 		if self.tagsReady:
@@ -273,6 +285,12 @@ class CommitView(MonospaceView):
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
 
 		self.tagsReady = True
+
+	def initScroll():
+		if not self.yscoll:
+			# self.yscoll = self.get_vadjustment() # Deprecated
+			self.yscoll = Gtk.Scrollable.get_vadjustment(self)
+			self.yscoll.connect('value-changed', self.onHistoryViewScroll)
 
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
@@ -312,14 +330,56 @@ class CommitView(MonospaceView):
 		buf.place_cursor(buf.get_start_iter())
 		self.timeit('place_cursor')
 
-		self.formatView()
-		self.timeit('formatView')
+		self.lineFormattedMap.clear()
+		self.formatVisible()
+		self.initScroll()
+		self.timeit('formatVisible')
+
+		# self.formatView()
+		# self.timeit('formatView')
 
 		self.currentSha = sha
 		self.showingAll = showAll
 
 	def showAll(self):
 		self.selectSha(self.currentSha, showAll=True)
+
+	def onHistoryViewScroll(self, adjustment, data=None):
+		print("onHistoryViewScroll", adjustment, adjustment.get_value())
+		self.formatVisible()
+
+
+	def formatVisible(self):
+		# print("formatVisible")
+		buf = self.get_buffer()
+		r = self.get_visible_rect()
+		iterTop, yTop = self.get_line_at_y(r.y)
+		iterBottom, yBottom = self.get_line_at_y(r.y + r.height)
+		lineTop = iterTop.get_line()
+		lineBottom = iterBottom.get_line()
+		print("get_visible_rect", (r.x, r.y, r.width, r.height), (lineTop, lineBottom))
+		for text, startIter, endIter, y in self.iterLines(lineTop, lineBottom):
+			self.formatLine(buf, text, startIter, endIter, y)
+
+	def formatLine(self, buf, text, startIter, endIter, y):
+		if self.lineFormattedMap.get(y, False):
+			return
+
+		searchOffset = startIter.get_offset()
+		# print('formatLine', searchOffset, text)
+
+		OLDLINE_PATTERN = r'^\-.*$'
+		for match in re.finditer(OLDLINE_PATTERN, text, re.MULTILINE):
+			applyTagForGroup(buf, match, 0, self.tag_oldline, searchOffset=searchOffset)
+		NEWLINE_PATTERN = r'^\+.*$'
+		for match in re.finditer(NEWLINE_PATTERN, text, re.MULTILINE):
+			applyTagForGroup(buf, match, 0, self.tag_newline, searchOffset=searchOffset)
+		HUNKHEADER_PATTERN = r'^@@.+$'
+		for match in re.finditer(HUNKHEADER_PATTERN, text, re.MULTILINE):
+			applyTagForGroup(buf, match, 0, self.tag_hunkheader, searchOffset=searchOffset)
+
+		self.lineFormattedMap[y] = True
+
 
 	def formatView(self):
 		buf = self.get_buffer()

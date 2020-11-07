@@ -16,8 +16,13 @@ cwdAbs = os.path.abspath(os.path.expanduser(cwd))
 
 
 
-LOG_PATTERN = r'^([ \*\|\\\/]+)((\w{6,}) (\([^)]+\) )?(.+))?$'
-
+LOG_PATTERN = re.compile(r'^([ \*\|\\\/]+)((\w{6,}) (\([^)]+\) )?(.+))?$', re.MULTILINE)
+OLDLINE_PATTERN = re.compile(r'^\-.*$', re.MULTILINE)
+NEWLINE_PATTERN = re.compile(r'^\+.*$', re.MULTILINE)
+HUNKHEADER_PATTERN = re.compile(r'^@@.+$', re.MULTILINE)
+COMMITHEADER_PATTERN = re.compile(r'^(commit ((.|\n)+?))(\n(---\n)((.|\n)+?))?(\ndiff|$)')
+STATFILE_PATTERN = re.compile(r' (.+?)\s+\|\s+(\d+) (\+*)(\-*)')
+DIFF_PATTERN = re.compile(r'\n(diff ((.|\n)+?))\n(\-\-\-|\+\+\+)')
 
 #---
 def log(*args):
@@ -205,7 +210,7 @@ class HistoryView(MonospaceView):
 
 	def selectHead(self):
 		buf = self.get_buffer()
-		for match in re.finditer(LOG_PATTERN, self.getAllText(), re.MULTILINE):
+		for match in LOG_PATTERN.finditer(self.getAllText()):
 			if match.group(4):
 				groupStart = match.start(4)
 				for subMatch in re.finditer(r'(\(|, )(HEAD)( -> (.+?))?(,|\))', match.group(4)):
@@ -230,8 +235,7 @@ class HistoryView(MonospaceView):
 		searchOffset = startIter.get_offset()
 		# print('formatLine', searchOffset, text)
 
-		OLDLINE_PATTERN = r'^\-.*$'
-		for match in re.finditer(LOG_PATTERN, text, re.MULTILINE):
+		for match in LOG_PATTERN.finditer(text):
 			applyTagForGroup(buf, match, 1, self.tag_graph, searchOffset=searchOffset)
 			applyTagForGroup(buf, match, 3, self.tag_sha, searchOffset=searchOffset)
 			applyTagForGroup(buf, match, 4, self.tag_decorations, searchOffset=searchOffset)
@@ -374,34 +378,28 @@ class CommitView(MonospaceView):
 		if len(startIter.get_tags()) >= 1:
 			return # formatView already handled this line
 
-		OLDLINE_PATTERN = r'^\-.*$'
-		for match in re.finditer(OLDLINE_PATTERN, text, re.MULTILINE):
+		for match in OLDLINE_PATTERN.finditer(text):
 			applyTagForGroup(buf, match, 0, self.tag_oldline, searchOffset=searchOffset)
-		NEWLINE_PATTERN = r'^\+.*$'
-		for match in re.finditer(NEWLINE_PATTERN, text, re.MULTILINE):
+		for match in NEWLINE_PATTERN.finditer(text):
 			applyTagForGroup(buf, match, 0, self.tag_newline, searchOffset=searchOffset)
-		HUNKHEADER_PATTERN = r'^@@.+$'
-		for match in re.finditer(HUNKHEADER_PATTERN, text, re.MULTILINE):
+		for match in HUNKHEADER_PATTERN.finditer(text):
 			applyTagForGroup(buf, match, 0, self.tag_hunkheader, searchOffset=searchOffset)
 
 	def formatView(self):
 		buf = self.get_buffer()
 		allText = self.getAllText()
 
-		COMMITHEADER_PATTERN = r'^(commit ((.|\n)+?))(\n(---\n)((.|\n)+?))?(\ndiff|$)'
-		for match in re.finditer(COMMITHEADER_PATTERN, allText):
+		for match in COMMITHEADER_PATTERN.finditer(allText):
 			applyTagForGroup(buf, match, 1, self.tag_hunkheader)
 			applyTagForGroup(buf, match, 5, self.tag_hunkheader)
 			applyTagForGroup(buf, match, 6, self.tag_commitstat)
 
-			statFilePattern = re.compile(r' (.+?)\s+\|\s+(\d+) (\+*)(\-*)')
-			for statFileMatch in statFilePattern.finditer(allText, match.start(6), match.end(6)):
+			for statFileMatch in STATFILE_PATTERN.finditer(allText, match.start(6), match.end(6)):
 				applyTagForGroup(buf, statFileMatch, 1, self.tag_statfilename)
 				applyTagForGroup(buf, statFileMatch, 3, self.tag_newline)
 				applyTagForGroup(buf, statFileMatch, 4, self.tag_oldline)
 
-		DIFF_PATTERN = r'\n(diff ((.|\n)+?))\n(\-\-\-|\+\+\+)'
-		for match in re.finditer(DIFF_PATTERN, allText):
+		for match in DIFF_PATTERN.finditer(allText):
 			applyTagForGroup(buf, match, 1, self.tag_diffheader)
 
 
@@ -505,7 +503,7 @@ class MainWindow(Gtk.ApplicationWindow):
 			return # Not yet ready
 
 		line = self.historyView.getLineAt(buffer.props.cursor_position)
-		match = re.match(LOG_PATTERN, line)
+		match = LOG_PATTERN.match(line)
 		if match:
 			sha = match.group(3)
 			if sha:

@@ -353,13 +353,13 @@ class CommitView(MonospaceView):
 		buf.place_cursor(buf.get_start_iter())
 		self.timeit('place_cursor')
 
+		self.formatView()
+		self.timeit('formatView')
+
 		self.lineFormattedMap.clear()
 		self.formatVisible()
 		self.initScroll()
 		self.timeit('formatVisible')
-
-		# self.formatView()
-		# self.timeit('formatView')
 
 		self.currentSha = sha
 		self.showingAll = showAll
@@ -370,6 +370,9 @@ class CommitView(MonospaceView):
 	def formatLine(self, buf, text, startIter, endIter, y):
 		searchOffset = startIter.get_offset()
 		# print('formatLine', searchOffset, text)
+
+		if len(startIter.get_tags()) >= 1:
+			return # formatView already handled this line
 
 		OLDLINE_PATTERN = r'^\-.*$'
 		for match in re.finditer(OLDLINE_PATTERN, text, re.MULTILINE):
@@ -384,23 +387,9 @@ class CommitView(MonospaceView):
 	def formatView(self):
 		buf = self.get_buffer()
 		allText = self.getAllText()
-		OLDLINE_PATTERN = r'^\-.*$'
-		for match in re.finditer(OLDLINE_PATTERN, allText, re.MULTILINE):
-			applyTagForGroup(buf, match, 0, self.tag_oldline)
-		NEWLINE_PATTERN = r'^\+.*$'
-		for match in re.finditer(NEWLINE_PATTERN, allText, re.MULTILINE):
-			applyTagForGroup(buf, match, 0, self.tag_newline)
-		HUNKHEADER_PATTERN = r'^@@.+$'
-		for match in re.finditer(HUNKHEADER_PATTERN, allText, re.MULTILINE):
-			applyTagForGroup(buf, match, 0, self.tag_hunkheader)
+
 		COMMITHEADER_PATTERN = r'^(commit ((.|\n)+?))(\n(---\n)((.|\n)+?))?(\ndiff|$)'
 		for match in re.finditer(COMMITHEADER_PATTERN, allText):
-			# The stat section starts with --- which matches the oldline regex,
-			# so remove the oldline tag in the hunkheader.
-			startIter = buf.get_iter_at_offset(match.start(4))
-			endIter = buf.get_iter_at_offset(match.end(4))
-			buf.remove_tag(self.tag_oldline, startIter, endIter)
-
 			applyTagForGroup(buf, match, 1, self.tag_hunkheader)
 			applyTagForGroup(buf, match, 5, self.tag_hunkheader)
 			applyTagForGroup(buf, match, 6, self.tag_commitstat)

@@ -59,7 +59,9 @@ class MonospaceView(Gtk.TextView):
 		textColor = Gdk.RGBA()
 		textColor.parse("#1abc9c")
 		self.override_color(Gtk.StateFlags.NORMAL, textColor)
-		# self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
+
+		self.lineFormattedMap = {}
+		self.yscoll = None
 
 	def getAllText(self):
 		buf = self.get_buffer()
@@ -93,6 +95,37 @@ class MonospaceView(Gtk.TextView):
 		else:
 			self.t = time.time()
 			log()
+
+	def initScroll(self):
+		if not self.yscoll:
+			# self.yscoll = self.get_vadjustment() # Deprecated
+			self.yscoll = Gtk.Scrollable.get_vadjustment(self)
+			self.yscoll.connect('value-changed', self.onViewScroll)
+
+	def onViewScroll(self, adjustment, data=None):
+		print("onViewScroll", adjustment.get_value())
+		self.formatVisible()
+
+	def formatVisible(self):
+		buf = self.get_buffer()
+		r = self.get_visible_rect()
+		iterTop, yTop = self.get_line_at_y(r.y)
+		iterBottom, yBottom = self.get_line_at_y(r.y + r.height)
+		lineTop = iterTop.get_line()
+		lineBottom = iterBottom.get_line()
+		print("formatVisible", (lineTop, lineBottom), (r.x, r.y, r.width, r.height))
+		for text, startIter, endIter, y in self.iterLines(lineTop, lineBottom):
+			self.checkFormatLine(buf, text, startIter, endIter, y)
+
+	def checkFormatLine(self, buf, text, startIter, endIter, y):
+		if self.lineFormattedMap.get(y, False):
+			return
+
+		self.formatLine(buf, text, startIter, endIter, y)
+		self.lineFormattedMap[y] = True
+
+	def formatLine(self, buf, text, startIter, endIter, y):
+		pass
 
 
 
@@ -165,8 +198,10 @@ class HistoryView(MonospaceView):
 		self.selectHead()
 		self.timeit('place_cursor')
 
-		# self.formatView()
-		self.timeit('formatView')
+		self.lineFormattedMap.clear()
+		self.formatVisible()
+		self.initScroll()
+		self.timeit('formatVisible')
 
 	def selectHead(self):
 		buf = self.get_buffer()
@@ -191,30 +226,26 @@ class HistoryView(MonospaceView):
 		# Could not find HEAD, select start of buffer.
 		buf.place_cursor(buf.get_start_iter())
 
-	def formatView(self):
-		buf = self.get_buffer()
-		for match in re.finditer(LOG_PATTERN, self.getAllText(), re.MULTILINE):
-			applyTagForGroup(buf, match, 1, self.tag_graph)
-			applyTagForGroup(buf, match, 3, self.tag_sha)
-			applyTagForGroup(buf, match, 4, self.tag_decorations)
-			# applyTagForGroup(buf, match, 5, self.tag_summary)
+	def formatLine(self, buf, text, startIter, endIter, y):
+		searchOffset = startIter.get_offset()
+		# print('formatLine', searchOffset, text)
 
-			def highlightGroup(groupStart, subMatch, group, tag):
-				start = groupStart + subMatch.start(group)
-				end = groupStart + subMatch.end(group)
-				startIter = buf.get_iter_at_offset(start)
-				endIter = buf.get_iter_at_offset(end)
-				buf.apply_tag(tag, startIter, endIter)
+		OLDLINE_PATTERN = r'^\-.*$'
+		for match in re.finditer(LOG_PATTERN, text, re.MULTILINE):
+			applyTagForGroup(buf, match, 1, self.tag_graph, searchOffset=searchOffset)
+			applyTagForGroup(buf, match, 3, self.tag_sha, searchOffset=searchOffset)
+			applyTagForGroup(buf, match, 4, self.tag_decorations, searchOffset=searchOffset)
+			# applyTagForGroup(buf, match, 5, self.tag_summary, searchOffset=searchOffset)
 
 			if match.group(4):
-				groupStart = match.start(4)
+				groupOffset = searchOffset + match.start(4)
 				for subMatch in re.finditer(r'(\(|, )(tag: .+?)(,|\))', match.group(4)):
-					highlightGroup(groupStart, subMatch, 2, self.tag_tag)
+					applyTagForGroup(buf, subMatch, 2, self.tag_tag, searchOffset=groupOffset)
 				for subMatch in re.finditer(r'(\(|, )((HEAD ->) (.+?))(,|\))', match.group(4)):
-					highlightGroup(groupStart, subMatch, 3, self.tag_head)
-					highlightGroup(groupStart, subMatch, 4, self.tag_local)
+					applyTagForGroup(buf, subMatch, 3, self.tag_head, searchOffset=groupOffset)
+					applyTagForGroup(buf, subMatch, 4, self.tag_local, searchOffset=groupOffset)
 				for subMatch in re.finditer(r'(\(|, )([^\/]+)(,|\))', match.group(4)):
-					highlightGroup(groupStart, subMatch, 2, self.tag_local)
+					applyTagForGroup(buf, subMatch, 2, self.tag_local, searchOffset=groupOffset)
 
 	#---
 	def applyFilter(self, newFilter):
@@ -254,8 +285,6 @@ class CommitView(MonospaceView):
 		self.dirPath = None
 		self.currentSha = ''
 		self.showingAll = False
-		self.lineFormattedMap = {}
-		self.yscoll = None
 
 	def initTags(self):
 		if self.tagsReady:
@@ -285,12 +314,6 @@ class CommitView(MonospaceView):
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
 
 		self.tagsReady = True
-
-	def initScroll():
-		if not self.yscoll:
-			# self.yscoll = self.get_vadjustment() # Deprecated
-			self.yscoll = Gtk.Scrollable.get_vadjustment(self)
-			self.yscoll.connect('value-changed', self.onHistoryViewScroll)
 
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
@@ -344,27 +367,7 @@ class CommitView(MonospaceView):
 	def showAll(self):
 		self.selectSha(self.currentSha, showAll=True)
 
-	def onHistoryViewScroll(self, adjustment, data=None):
-		print("onHistoryViewScroll", adjustment, adjustment.get_value())
-		self.formatVisible()
-
-
-	def formatVisible(self):
-		# print("formatVisible")
-		buf = self.get_buffer()
-		r = self.get_visible_rect()
-		iterTop, yTop = self.get_line_at_y(r.y)
-		iterBottom, yBottom = self.get_line_at_y(r.y + r.height)
-		lineTop = iterTop.get_line()
-		lineBottom = iterBottom.get_line()
-		print("get_visible_rect", (r.x, r.y, r.width, r.height), (lineTop, lineBottom))
-		for text, startIter, endIter, y in self.iterLines(lineTop, lineBottom):
-			self.formatLine(buf, text, startIter, endIter, y)
-
 	def formatLine(self, buf, text, startIter, endIter, y):
-		if self.lineFormattedMap.get(y, False):
-			return
-
 		searchOffset = startIter.get_offset()
 		# print('formatLine', searchOffset, text)
 
@@ -377,9 +380,6 @@ class CommitView(MonospaceView):
 		HUNKHEADER_PATTERN = r'^@@.+$'
 		for match in re.finditer(HUNKHEADER_PATTERN, text, re.MULTILINE):
 			applyTagForGroup(buf, match, 0, self.tag_hunkheader, searchOffset=searchOffset)
-
-		self.lineFormattedMap[y] = True
-
 
 	def formatView(self):
 		buf = self.get_buffer()

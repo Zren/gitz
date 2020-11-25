@@ -67,6 +67,7 @@ class MonospaceView(Gtk.TextView):
 
 		self.lineFormattedMap = {}
 		self.yscoll = None
+		self.formatVisibleTimer = 0
 
 	def getAllText(self):
 		buf = self.get_buffer()
@@ -112,6 +113,7 @@ class MonospaceView(Gtk.TextView):
 		self.formatVisible()
 
 	def formatVisible(self):
+		self.resetFormatVisibleTimer()
 		buf = self.get_buffer()
 		r = self.get_visible_rect()
 		iterTop, yTop = self.get_line_at_y(r.y)
@@ -119,8 +121,20 @@ class MonospaceView(Gtk.TextView):
 		lineTop = iterTop.get_line()
 		lineBottom = iterBottom.get_line()
 		print("formatVisible", (lineTop, lineBottom), (r.x, r.y, r.width, r.height))
-		for text, startIter, endIter, y in self.iterLines(lineTop, lineBottom):
-			self.checkFormatLine(buf, text, startIter, endIter, y)
+		if lineTop == 0 and lineBottom == 0:
+			# The TextView isn't ready yet.
+			self.scheduleFormatVisible(delay=20)
+		else:
+			for text, startIter, endIter, y in self.iterLines(lineTop, lineBottom):
+				self.checkFormatLine(buf, text, startIter, endIter, y)
+
+	def resetFormatVisibleTimer(self):
+		if self.formatVisibleTimer != 0:
+			GLib.source_remove(self.formatVisibleTimer)
+			self.formatVisibleTimer = 0
+
+	def scheduleFormatVisible(self, delay=400):
+		self.formatVisibleTimer = GLib.timeout_add(delay, self.formatVisible)
 
 	def checkFormatLine(self, buf, text, startIter, endIter, y):
 		if self.lineFormattedMap.get(y, False):

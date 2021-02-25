@@ -109,7 +109,7 @@ class MonospaceView(Gtk.TextView):
 			self.yscoll.connect('value-changed', self.onViewScroll)
 
 	def onViewScroll(self, adjustment, data=None):
-		print("onViewScroll", adjustment.get_value())
+		# print("onViewScroll", adjustment.get_value())
 		self.formatVisible()
 
 	def formatVisible(self):
@@ -120,7 +120,7 @@ class MonospaceView(Gtk.TextView):
 		iterBottom, yBottom = self.get_line_at_y(r.y + r.height)
 		lineTop = iterTop.get_line()
 		lineBottom = iterBottom.get_line()
-		print("formatVisible", (lineTop, lineBottom), (r.x, r.y, r.width, r.height))
+		# print("formatVisible", (lineTop, lineBottom), (r.x, r.y, r.width, r.height))
 		if lineTop == 0 and lineBottom == 0:
 			# The TextView isn't ready yet.
 			self.scheduleFormatVisible(delay=20)

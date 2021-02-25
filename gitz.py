@@ -154,6 +154,9 @@ class HistoryView(MonospaceView):
 		self.override_font(Pango.font_description_from_string('Monospace 10'))
 		self.tagsReady = False
 		self.logStdout = ''
+		self.searchMatches = []
+		self.currentSearch = ''
+		self.applySearchTimer = 0
 		self.currentFilter = ''
 		self.applyFilterTimer = 0
 		self.dirPath = None
@@ -266,10 +269,53 @@ class HistoryView(MonospaceView):
 					applyTagForGroup(buf, subMatch, 2, self.tag_local, searchOffset=groupOffset)
 
 	#---
+	def applySearch(self, newSearch):
+		if newSearch == '':
+			pass
+		else:
+			buf = self.get_buffer()
+			if self.currentSearch == newSearch:
+				# Continue from cursor
+				cursor_mark = buf.get_insert()
+				start = buf.get_iter_at_mark(cursor_mark)
+				start.forward_line()
+			else:
+				# Start from top
+				start = buf.get_start_iter()
+			end = buf.get_end_iter()
+			searchFlags = Gtk.TextSearchFlags.CASE_INSENSITIVE
+			match = start.forward_search(newSearch, searchFlags, end)
+			if match is not None:
+				matchStart, matchEnd = match
+				buf.place_cursor(matchStart)
+				self.scroll_to_iter(
+					matchStart,
+					within_margin=0.0,
+					use_align=True,
+					xalign=1.0, # Right Align so that we still see the log graph
+					yalign=0.0, # Top Align
+				)
+
+		self.currentSearch = newSearch
+
+		self.applySearchTimer = 0
+		return False # Cancel applySearchTimer interval
+
+	def resetApplySearchTimer(self):
+		if self.applySearchTimer != 0:
+			GLib.source_remove(self.applySearchTimer)
+			self.applySearchTimer = 0
+
+	def debouncedApplySearch(self, newSearch):
+		self.resetApplySearchTimer()
+		self.applySearchTimer = GLib.timeout_add(400, self.applySearch, newSearch)
+
+	#---
 	def applyFilter(self, newFilter):
 		if newFilter == '':
 			self.setAndFormatText(self.logStdout)
 
+			pass
 		else:
 			# We need to re-populate then filter
 			filteredLines = []
@@ -443,7 +489,8 @@ class MainWindow(Gtk.ApplicationWindow):
 		historyTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
 
 		self.filterEntry = HistoryFilterEntry()
-		self.filterEntry.connect('notify::text', self.onHistoryViewFilterChanged)
+		self.filterEntry.connect('activate', self.onHistoryViewSearchChanged)
+		self.filterEntry.connect('notify::text', self.onHistoryViewSearchChanged)
 
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -501,12 +548,12 @@ class MainWindow(Gtk.ApplicationWindow):
 			else:
 				self.close()
 
-	def onHistoryViewFilterChanged(self, buffer, data=None):
+	def onHistoryViewSearchChanged(self, buffer, data=None):
 		if not self.historyView.tagsReady:
 			return # Not yet ready
 
-		newFilter = self.filterEntry.get_text()
-		self.historyView.debouncedApplyFilter(newFilter)
+		newSearch = self.filterEntry.get_text()
+		self.historyView.debouncedApplySearch(newSearch)
 
 	def onCommitViewShowAll(self, button):
 		self.commitView.showAll()

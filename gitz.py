@@ -173,6 +173,7 @@ class HistoryView(MonospaceView):
 		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
 		# self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
+		self.tag_found = buf.create_tag("found", background="#45452e")
 		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")
 		self.tagsReady = True
 
@@ -269,9 +270,17 @@ class HistoryView(MonospaceView):
 					applyTagForGroup(buf, subMatch, 2, self.tag_local, searchOffset=groupOffset)
 
 	#---
+	def clearAllMatches(self):
+		buf = self.get_buffer()
+		buf.remove_tag(self.tag_found, buf.get_start_iter(), buf.get_end_iter())
+
+	def highlightAllMatches(self, newSearch):
+		buf = self.get_buffer()
+		buf.remove_tag(self.tag_found, buf.get_start_iter(), buf.get_end_iter())
+
 	def applySearch(self, newSearch):
 		if newSearch == '':
-			pass
+			self.clearAllMatches()
 		else:
 			buf = self.get_buffer()
 			if self.currentSearch == newSearch:
@@ -287,6 +296,7 @@ class HistoryView(MonospaceView):
 			match = start.forward_search(newSearch, searchFlags, end)
 			if match is not None:
 				matchStart, matchEnd = match
+				buf.apply_tag(self.tag_found, matchStart, matchEnd)
 				buf.place_cursor(matchStart)
 				self.scroll_to_iter(
 					matchStart,

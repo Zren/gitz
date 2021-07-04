@@ -69,6 +69,19 @@ class MonospaceView(Gtk.TextView):
 		self.yscoll = None
 		self.formatVisibleTimer = 0
 
+		self.tagsReady = False
+
+		self.searchMatches = []
+		self.currentSearch = ''
+		self.applySearchTimer = 0
+
+	def initTags(self):
+		if self.tagsReady:
+			return
+		buf = self.get_buffer()
+		self.tag_found = buf.create_tag("found", background="#45452e")
+		self.tagsReady = True
+
 	def getAllText(self):
 		buf = self.get_buffer()
 		return buf.get_text(buf.get_start_iter(), buf.get_end_iter(), include_hidden_chars=True)
@@ -146,17 +159,64 @@ class MonospaceView(Gtk.TextView):
 	def formatLine(self, buf, text, startIter, endIter, y):
 		pass
 
+	#---
+	def clearAllMatches(self):
+		buf = self.get_buffer()
+		buf.remove_tag(self.tag_found, buf.get_start_iter(), buf.get_end_iter())
+
+	def highlightAllMatches(self, newSearch):
+		buf = self.get_buffer()
+		buf.remove_tag(self.tag_found, buf.get_start_iter(), buf.get_end_iter())
+
+	def applySearch(self, newSearch):
+		if newSearch == '':
+			self.clearAllMatches()
+		else:
+			buf = self.get_buffer()
+			if self.currentSearch == newSearch:
+				# Continue from cursor
+				cursor_mark = buf.get_insert()
+				start = buf.get_iter_at_mark(cursor_mark)
+				start.forward_line()
+			else:
+				# Start from top
+				start = buf.get_start_iter()
+			end = buf.get_end_iter()
+			searchFlags = Gtk.TextSearchFlags.CASE_INSENSITIVE
+			match = start.forward_search(newSearch, searchFlags, end)
+			if match is not None:
+				matchStart, matchEnd = match
+				buf.apply_tag(self.tag_found, matchStart, matchEnd)
+				buf.place_cursor(matchStart)
+				self.scroll_to_iter(
+					matchStart,
+					within_margin=0.0,
+					use_align=True,
+					xalign=1.0, # Right Align so that we still see the log graph
+					yalign=0.0, # Top Align
+				)
+
+		self.currentSearch = newSearch
+
+		self.applySearchTimer = 0
+		return False # Cancel applySearchTimer interval
+
+	def resetApplySearchTimer(self):
+		if self.applySearchTimer != 0:
+			GLib.source_remove(self.applySearchTimer)
+			self.applySearchTimer = 0
+
+	def debouncedApplySearch(self, newSearch):
+		self.resetApplySearchTimer()
+		self.applySearchTimer = GLib.timeout_add(400, self.applySearch, newSearch)
+
 
 
 class HistoryView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
 		self.override_font(Pango.font_description_from_string('Monospace 10'))
-		self.tagsReady = False
 		self.logStdout = ''
-		self.searchMatches = []
-		self.currentSearch = ''
-		self.applySearchTimer = 0
 		self.currentFilter = ''
 		self.applyFilterTimer = 0
 		self.dirPath = None
@@ -173,9 +233,8 @@ class HistoryView(MonospaceView):
 		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
 		# self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
-		self.tag_found = buf.create_tag("found", background="#45452e")
 		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")
-		self.tagsReady = True
+		MonospaceView.initTags(self)
 
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
@@ -270,57 +329,6 @@ class HistoryView(MonospaceView):
 					applyTagForGroup(buf, subMatch, 2, self.tag_local, searchOffset=groupOffset)
 
 	#---
-	def clearAllMatches(self):
-		buf = self.get_buffer()
-		buf.remove_tag(self.tag_found, buf.get_start_iter(), buf.get_end_iter())
-
-	def highlightAllMatches(self, newSearch):
-		buf = self.get_buffer()
-		buf.remove_tag(self.tag_found, buf.get_start_iter(), buf.get_end_iter())
-
-	def applySearch(self, newSearch):
-		if newSearch == '':
-			self.clearAllMatches()
-		else:
-			buf = self.get_buffer()
-			if self.currentSearch == newSearch:
-				# Continue from cursor
-				cursor_mark = buf.get_insert()
-				start = buf.get_iter_at_mark(cursor_mark)
-				start.forward_line()
-			else:
-				# Start from top
-				start = buf.get_start_iter()
-			end = buf.get_end_iter()
-			searchFlags = Gtk.TextSearchFlags.CASE_INSENSITIVE
-			match = start.forward_search(newSearch, searchFlags, end)
-			if match is not None:
-				matchStart, matchEnd = match
-				buf.apply_tag(self.tag_found, matchStart, matchEnd)
-				buf.place_cursor(matchStart)
-				self.scroll_to_iter(
-					matchStart,
-					within_margin=0.0,
-					use_align=True,
-					xalign=1.0, # Right Align so that we still see the log graph
-					yalign=0.0, # Top Align
-				)
-
-		self.currentSearch = newSearch
-
-		self.applySearchTimer = 0
-		return False # Cancel applySearchTimer interval
-
-	def resetApplySearchTimer(self):
-		if self.applySearchTimer != 0:
-			GLib.source_remove(self.applySearchTimer)
-			self.applySearchTimer = 0
-
-	def debouncedApplySearch(self, newSearch):
-		self.resetApplySearchTimer()
-		self.applySearchTimer = GLib.timeout_add(400, self.applySearch, newSearch)
-
-	#---
 	def applyFilter(self, newFilter):
 		if newFilter == '':
 			self.setAndFormatText(self.logStdout)
@@ -355,7 +363,6 @@ class CommitView(MonospaceView):
 		MonospaceView.__init__(self)
 		# self.set_wrap_mode(Gtk.WrapMode.WORD)
 		self.override_font(Pango.font_description_from_string('Monospace 13'))
-		self.tagsReady = False
 		self.dirPath = None
 		self.currentSha = ''
 		self.showingAll = False
@@ -387,7 +394,7 @@ class CommitView(MonospaceView):
 		self.tag_hunkheader = buf.create_tag("hunkheader", foreground="#a6acb9") # Light Gray
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
 
-		self.tagsReady = True
+		MonospaceView.initTags(self)
 
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
@@ -480,8 +487,29 @@ class TextSearchBar(Gtk.SearchBar):
 
 		self.entry = Gtk.SearchEntry()
 		self.entry.set_placeholder_text('Search (Ctrl+F)')
+		self.entry.connect('activate', self.onSearchChanged)
+		self.entry.connect('stop-search', self.onStopSearch)
 		self.connect_entry(self.entry)
 		self.add(self.entry)
+
+		self.textView = None
+
+	def setTextView(self, textView):
+		self.textView = textView
+
+	def onSearchChanged(self, buffer, data=None):
+		if not self.textView:
+			raise Exception("TextSearchBar.textView not set")
+		if not self.textView.tagsReady:
+			raise Exception("TextSearchBar.tagsReady=False. Call initTags().")
+
+		newSearch = self.entry.get_text()
+		self.textView.debouncedApplySearch(newSearch)
+
+	def onStopSearch(self, entry, user_data=None):
+		print('onStopSearch')
+		self.textView.grab_focus()
+		self.textView.clearAllMatches()
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -502,20 +530,23 @@ class MainWindow(Gtk.ApplicationWindow):
 		historyTextBuffer = self.historyView.get_buffer()
 		historyTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
 
-		self.filterBar = TextSearchBar()
-		self.filterEntry = self.filterBar.entry
-		self.filterEntry.connect('activate', self.onHistoryViewSearchChanged)
+		self.historySearchBar = TextSearchBar()
+		self.historySearchBar.setTextView(self.historyView)
+		self.filterEntry = self.historySearchBar.entry
 
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.leftPane.add(self.historyView)
 
 		self.leftPaneBox = Gtk.VBox()
-		self.leftPaneBox.pack_start(self.filterBar, expand=False, fill=True, padding=0)
+		self.leftPaneBox.pack_start(self.historySearchBar, expand=False, fill=True, padding=0)
 		self.leftPaneBox.pack_start(self.leftPane, expand=True, fill=True, padding=0)
 
 		#--- Right
 		self.commitView = CommitView()
+
+		self.commitSearchBar = TextSearchBar()
+		self.commitSearchBar.setTextView(self.commitView)
 
 		self.rightPane = Gtk.ScrolledWindow()
 		self.rightPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -525,6 +556,7 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.showAllButton.connect('clicked', self.onCommitViewShowAll)
 
 		self.rightPaneBox = Gtk.VBox()
+		self.rightPaneBox.pack_start(self.commitSearchBar, expand=False, fill=True, padding=0)
 		self.rightPaneBox.pack_start(self.rightPane, expand=True, fill=True, padding=0)
 		self.rightPaneBox.pack_start(self.showAllButton, expand=False, fill=True, padding=0)
 
@@ -554,21 +586,17 @@ class MainWindow(Gtk.ApplicationWindow):
 		elif ctrl and event.keyval == 119: # Ctrl+W
 			self.close()
 		elif ctrl and event.keyval == 102: # Ctrl+F
-			self.filterBar.set_search_mode(True)
+			if self.get_focus() == self.historyView:
+				self.historySearchBar.set_search_mode(True)
+			elif self.get_focus() == self.commitView:
+				self.commitSearchBar.set_search_mode(True)
 		elif event.keyval == 65307: # Esc
-			if self.get_focus() == self.filterEntry:
-				self.historyView.grab_focus()
-				self.filterEntry.set_text('') # Clear filter
-				self.filterBar.set_search_mode(False)
+			if self.get_focus() == self.historySearchBar.entry:
+				self.historySearchBar.set_search_mode(False)
+			elif self.get_focus() == self.commitSearchBar.entry:
+				self.commitSearchBar.set_search_mode(True)
 			else:
 				self.close()
-
-	def onHistoryViewSearchChanged(self, buffer, data=None):
-		if not self.historyView.tagsReady:
-			return # Not yet ready
-
-		newSearch = self.filterEntry.get_text()
-		self.historyView.debouncedApplySearch(newSearch)
 
 	def onCommitViewShowAll(self, button):
 		self.commitView.showAll()

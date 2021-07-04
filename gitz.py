@@ -473,10 +473,9 @@ class CommitView(MonospaceView):
 			applyTagForGroup(buf, match, 1, self.tag_diffheader)
 
 
-class HistoryFilterEntry(Gtk.Entry):
+class HistoryFilterEntry(Gtk.SearchEntry):
 	def __init__(self):
-		Gtk.Entry.__init__(self)
-		self.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, 'search')
+		Gtk.SearchBar.__init__(self)
 		self.set_placeholder_text('Search (Ctrl+F)')
 
 

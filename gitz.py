@@ -473,10 +473,15 @@ class CommitView(MonospaceView):
 			applyTagForGroup(buf, match, 1, self.tag_diffheader)
 
 
-class HistoryFilterEntry(Gtk.SearchEntry):
+class TextSearchBar(Gtk.SearchBar):
 	def __init__(self):
 		Gtk.SearchBar.__init__(self)
-		self.set_placeholder_text('Search (Ctrl+F)')
+		self.set_show_close_button(True)
+
+		self.entry = Gtk.SearchEntry()
+		self.entry.set_placeholder_text('Search (Ctrl+F)')
+		self.connect_entry(self.entry)
+		self.add(self.entry)
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -497,16 +502,16 @@ class MainWindow(Gtk.ApplicationWindow):
 		historyTextBuffer = self.historyView.get_buffer()
 		historyTextBuffer.connect('notify::cursor-position', self.onHistoryViewMoveCursor)
 
-		self.filterEntry = HistoryFilterEntry()
+		self.filterBar = TextSearchBar()
+		self.filterEntry = self.filterBar.entry
 		self.filterEntry.connect('activate', self.onHistoryViewSearchChanged)
-		self.filterEntry.connect('notify::text', self.onHistoryViewSearchChanged)
 
 		self.leftPane = Gtk.ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.leftPane.add(self.historyView)
 
 		self.leftPaneBox = Gtk.VBox()
-		self.leftPaneBox.pack_start(self.filterEntry, expand=False, fill=True, padding=0)
+		self.leftPaneBox.pack_start(self.filterBar, expand=False, fill=True, padding=0)
 		self.leftPaneBox.pack_start(self.leftPane, expand=True, fill=True, padding=0)
 
 		#--- Right
@@ -549,11 +554,12 @@ class MainWindow(Gtk.ApplicationWindow):
 		elif ctrl and event.keyval == 119: # Ctrl+W
 			self.close()
 		elif ctrl and event.keyval == 102: # Ctrl+F
-			self.filterEntry.grab_focus()
+			self.filterBar.set_search_mode(True)
 		elif event.keyval == 65307: # Esc
 			if self.get_focus() == self.filterEntry:
 				self.historyView.grab_focus()
 				self.filterEntry.set_text('') # Clear filter
+				self.filterBar.set_search_mode(False)
 			else:
 				self.close()
 

@@ -8,11 +8,84 @@ import re
 import time
 
 import gi
-gi.require_version('Gtk', '3.0')
+try:
+	gi.require_version('Gtk', '3.0')
+except:
+	gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, Gio, GLib, Pango
+
+def isGtk(major):
+	return major == Gtk.get_major_version()
 
 cwd = os.getcwd()
 cwdAbs = os.path.abspath(os.path.expanduser(cwd))
+
+class SearchBar(Gtk.SearchBar):
+	def add(self, child):
+		if isGtk(3):
+			super().add(child)
+		elif isGtk(4):
+			self.set_child(child)
+
+class ScrolledWindow(Gtk.ScrolledWindow):
+	def add(self, child):
+		if isGtk(3):
+			super().add(child)
+		elif isGtk(4):
+			self.set_child(child)
+
+class ApplicationWindow(Gtk.ApplicationWindow):
+	def add(self, child):
+		if isGtk(3):
+			super().add(child)
+		elif isGtk(4):
+			self.set_child(child)
+
+class HPaned(Gtk.Paned):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, orientation=Gtk.Orientation.HORIZONTAL, **kwargs)
+	def add1(self, child):
+		if isGtk(3):
+			super().add1(child)
+		elif isGtk(4):
+			self.set_start_child(child)
+	def add2(self, child):
+		if isGtk(3):
+			super().add2(child)
+		elif isGtk(4):
+			self.set_end_child(child)
+
+class VBox(Gtk.Box):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args,
+			orientation=Gtk.Orientation.VERTICAL,
+			homogeneous=False,
+			**kwargs
+		)
+	def pack_start(self, child, expand, fill, padding):
+		if isGtk(3):
+			super().pack_start(child, expand, fill, padding)
+		elif isGtk(4):
+			child.set_vexpand(expand)
+			# child.set_fill(fill)
+			self.append(child)
+
+def GtkTextBuffer_parseTextIter(obj):
+	if isinstance(obj, Gtk.TextIter):
+		return obj
+	elif isinstance(obj, tuple) and len(obj) == 2:
+		result, textIter = obj
+		if isinstance(textIter, Gtk.TextIter):
+			return textIter
+	raise NotImplemented()
+
+def GtkTextBuffer_get_iter_at_line(buf, line_number):
+	line_iter = buf.get_iter_at_line(line_number)
+	return GtkTextBuffer_parseTextIter(line_iter)
+
+def GtkTextBuffer_get_iter_at_line_offset(buf, line_number, char_offset):
+	line_iter = buf.get_iter_at_line_offset(line_number, char_offset)
+	return GtkTextBuffer_parseTextIter(line_iter)
 
 
 
@@ -63,7 +136,8 @@ class MonospaceView(Gtk.TextView):
 
 		textColor = Gdk.RGBA()
 		textColor.parse("#1abc9c")
-		self.override_color(Gtk.StateFlags.NORMAL, textColor)
+		if isGtk(3):
+			self.override_color(Gtk.StateFlags.NORMAL, textColor)
 
 		self.lineFormattedMap = {}
 		self.yscoll = None
@@ -89,8 +163,10 @@ class MonospaceView(Gtk.TextView):
 	def getLineAt(self, offset):
 		buf = self.get_buffer()
 		startIter = buf.get_iter_at_offset(offset)
-		startIter = buf.get_iter_at_line(startIter.get_line())
+		# startIter = buf.get_iter_at_line(startIter.get_line())
+		startIter = GtkTextBuffer_get_iter_at_line(buf, startIter.get_line()) # PyGTK GTK4 Workaround
 		endIter = startIter.copy()
+
 		endIter.forward_to_line_end()
 		line = buf.get_text(startIter, endIter, include_hidden_chars=True)
 		return line
@@ -98,7 +174,8 @@ class MonospaceView(Gtk.TextView):
 	def iterLines(self, y1, y2):
 		buf = self.get_buffer()
 		for y in range(y1, y2+1):
-			startIter = buf.get_iter_at_line(y)
+			# startIter = buf.get_iter_at_line(y)
+			startIter = GtkTextBuffer_get_iter_at_line(buf, y) # PyGTK GTK4 Workaround
 			endIter = startIter.copy()
 			endIter.forward_to_line_end()
 			text = buf.get_text(startIter, endIter, include_hidden_chars=True)
@@ -215,7 +292,8 @@ class MonospaceView(Gtk.TextView):
 class HistoryView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
-		self.override_font(Pango.font_description_from_string('Monospace 10'))
+		if isGtk(3):
+			self.override_font(Pango.font_description_from_string('Monospace 10'))
 		self.logStdout = ''
 		self.currentFilter = ''
 		self.applyFilterTimer = 0
@@ -362,7 +440,8 @@ class CommitView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
 		# self.set_wrap_mode(Gtk.WrapMode.WORD)
-		self.override_font(Pango.font_description_from_string('Monospace 13'))
+		if isGtk(3):
+			self.override_font(Pango.font_description_from_string('Monospace 13'))
 		self.dirPath = None
 		self.currentSha = ''
 		self.showingAll = False
@@ -375,21 +454,24 @@ class CommitView(MonospaceView):
 		viewBg = rgba("#2d2d2d") # Adwaita Dark
 
 		self.tag_commitstat = buf.create_tag("commitstat", foreground="#a6acb9") # Light Gray
-		commitstatFg = self.tag_commitstat.get_property('foreground-rgba')
-		commitstatBg = lerpColor(viewBg, commitstatFg, 0.1)
-		self.tag_commitstat.set_property('paragraph-background', commitstatBg.to_string())
+		if isGtk(3):
+			commitstatFg = self.tag_commitstat.get_property('foreground-rgba')
+			commitstatBg = lerpColor(viewBg, commitstatFg, 0.1)
+			self.tag_commitstat.set_property('paragraph-background', commitstatBg.to_string())
 
 		self.tag_statfilename = buf.create_tag("statfilename", weight=Pango.Weight.BOLD)
 
 		self.tag_oldline = buf.create_tag("oldline", foreground="#dca3a3") # Red / Color2
-		oldlineFg = self.tag_oldline.get_property('foreground-rgba')
-		oldlineBg = lerpColor(viewBg, oldlineFg, 0.1)
-		self.tag_oldline.set_property('paragraph-background', oldlineBg.to_string())
+		if isGtk(3):
+			oldlineFg = self.tag_oldline.get_property('foreground-rgba')
+			oldlineBg = lerpColor(viewBg, oldlineFg, 0.1)
+			self.tag_oldline.set_property('paragraph-background', oldlineBg.to_string())
 
 		self.tag_newline = buf.create_tag("newline", foreground="#72d5a3") # Green / Color3
-		newlineFg = self.tag_newline.get_property('foreground-rgba')
-		newlineBg = lerpColor(viewBg, newlineFg, 0.1)
-		self.tag_newline.set_property('paragraph-background', newlineBg.to_string())
+		if isGtk(3):
+			newlineFg = self.tag_newline.get_property('foreground-rgba')
+			newlineBg = lerpColor(viewBg, newlineFg, 0.1)
+			self.tag_newline.set_property('paragraph-background', newlineBg.to_string())
 
 		self.tag_hunkheader = buf.create_tag("hunkheader", foreground="#a6acb9") # Light Gray
 		self.tag_diffheader = buf.create_tag("diffheader", foreground="#c695c6") # Purple
@@ -480,13 +562,14 @@ class CommitView(MonospaceView):
 			applyTagForGroup(buf, match, 1, self.tag_diffheader)
 
 
-class TextSearchBar(Gtk.SearchBar):
+class TextSearchBar(SearchBar):
 	def __init__(self):
 		Gtk.SearchBar.__init__(self)
 		self.set_show_close_button(True)
 
 		self.entry = Gtk.SearchEntry()
-		self.entry.set_placeholder_text('Search (Ctrl+F)')
+		if isGtk(3):
+			self.entry.set_placeholder_text('Search (Ctrl+F)')
 		self.entry.connect('activate', self.onSearchChanged)
 		self.entry.connect('stop-search', self.onStopSearch)
 		self.connect_entry(self.entry)
@@ -512,13 +595,14 @@ class TextSearchBar(Gtk.SearchBar):
 		self.textView.clearAllMatches()
 
 
-class MainWindow(Gtk.ApplicationWindow):
+class MainWindow(ApplicationWindow):
 	def __init__(self, app):
 		Gtk.Window.__init__(self, title="gitz", application=app)
 		self.set_title("gitz - {}".format(cwdAbs))
 		self.set_icon_name("git-gui")
 		self.set_default_size(1800, 720)
-		self.set_position(Gtk.WindowPosition.CENTER)
+		if isGtk(3):
+			self.set_position(Gtk.WindowPosition.CENTER)
 
 		# Force dark theme
 		settings = Gtk.Settings.get_default()
@@ -534,11 +618,11 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.historySearchBar.setTextView(self.historyView)
 		self.filterEntry = self.historySearchBar.entry
 
-		self.leftPane = Gtk.ScrolledWindow()
+		self.leftPane = ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.leftPane.add(self.historyView)
 
-		self.leftPaneBox = Gtk.VBox()
+		self.leftPaneBox = VBox()
 		self.leftPaneBox.pack_start(self.historySearchBar, expand=False, fill=True, padding=0)
 		self.leftPaneBox.pack_start(self.leftPane, expand=True, fill=True, padding=0)
 
@@ -548,27 +632,28 @@ class MainWindow(Gtk.ApplicationWindow):
 		self.commitSearchBar = TextSearchBar()
 		self.commitSearchBar.setTextView(self.commitView)
 
-		self.rightPane = Gtk.ScrolledWindow()
+		self.rightPane = ScrolledWindow()
 		self.rightPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.rightPane.add(self.commitView)
 
 		self.showAllButton = Gtk.Button.new_with_label("Show Full Commit")
 		self.showAllButton.connect('clicked', self.onCommitViewShowAll)
 
-		self.rightPaneBox = Gtk.VBox()
+		self.rightPaneBox = VBox()
 		self.rightPaneBox.pack_start(self.commitSearchBar, expand=False, fill=True, padding=0)
 		self.rightPaneBox.pack_start(self.rightPane, expand=True, fill=True, padding=0)
 		self.rightPaneBox.pack_start(self.showAllButton, expand=False, fill=True, padding=0)
 
 		#---
-		self.pane = Gtk.HPaned()
+		self.pane = HPaned()
 		self.pane.add1(self.leftPaneBox)
 		self.pane.add2(self.rightPaneBox)
 		self.pane.set_position(600)
 		self.add(self.pane)
 
 		#---
-		self.connect("key-press-event", self.onKeyPress)
+		if isGtk(3):
+			self.connect("key-press-event", self.onKeyPress)
 
 		#---
 		self.historyView.grab_focus()
@@ -621,8 +706,10 @@ class MainWindow(Gtk.ApplicationWindow):
 				def highlightGroup(group):
 					start = match.start(group)
 					end = match.end(group)
-					startIter = historyBuf.get_iter_at_line_offset(lineNumber, start)
-					endIter = historyBuf.get_iter_at_line_offset(lineNumber, end)
+					# startIter = historyBuf.get_iter_at_line_offset(lineNumber, start)
+					# endIter = historyBuf.get_iter_at_line_offset(lineNumber, end)
+					startIter = GtkTextBuffer_get_iter_at_line_offset(historyBuf, lineNumber, start) # PyGTK GTK4 Workaround
+					endIter = GtkTextBuffer_get_iter_at_line_offset(historyBuf, lineNumber, end) # PyGTK GTK4 Workaround
 					historyBuf.apply_tag(self.historyView.tag_selected, startIter, endIter)
 				highlightGroup(3)
 
@@ -644,8 +731,13 @@ class App(Gtk.Application):
 		if self.dirPath is not None:
 			self.win.setDirPath(self.dirPath)
 		self.timeit('construct')
-		self.win.show_all()
+
+		if isGtk(3):
+			self.win.show_all()
+		elif isGtk(4):
+			self.win.present()
 		self.timeit('show_all')
+
 		self.win.historyView.populate()
 		self.timeit('populate')
 

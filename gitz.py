@@ -616,7 +616,6 @@ class MainWindow(ApplicationWindow):
 
 		self.historySearchBar = TextSearchBar()
 		self.historySearchBar.setTextView(self.historyView)
-		self.filterEntry = self.historySearchBar.entry
 
 		self.leftPane = ScrolledWindow()
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)

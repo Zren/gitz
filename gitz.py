@@ -677,9 +677,9 @@ class MainWindow(ApplicationWindow):
 				self.commitSearchBar.set_search_mode(True)
 		elif event.keyval == 65307: # Esc
 			if self.get_focus() == self.historySearchBar.entry:
-				self.historySearchBar.set_search_mode(False)
+				pass
 			elif self.get_focus() == self.commitSearchBar.entry:
-				self.commitSearchBar.set_search_mode(True)
+				pass
 			else:
 				self.close()
 

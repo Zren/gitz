@@ -594,6 +594,46 @@ class TextSearchBar(SearchBar):
 		self.textView.grab_focus()
 		self.textView.clearAllMatches()
 
+class HistoryFilterComboBox(Gtk.ComboBoxText):
+	def __init__(self):
+		super().__init__(has_entry=True)
+		self.dirPath = None
+
+		# self.liststore = Gtk.ListStore(str, str)
+		# self.set_model(self.liststore)
+		# self.set_entry_text_column(1)
+
+	def timeit(self, label=None, *args):
+		if label:
+			t2 = time.time()
+			d = t2 - self.t
+			log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
+			self.t = t2
+		else:
+			self.t = time.time()
+			log()
+
+	def setDirPath(self, dirPath):
+		self.dirPath = dirPath
+
+	def populate(self):
+		self.timeit()
+		cmd = [
+			'git',
+			'-C',
+			cwdAbs,
+			'ls-files',
+		]
+		self.lsFilesProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+		lsFilesStdout = self.lsFilesProcess.stdout
+		# print(lsFilesStdout)
+		self.timeit('process')
+
+		for line in lsFilesStdout.splitlines():
+			# self.append([line, line])
+			self.append_text(line)
+		self.timeit('append_text')
+
 
 class MainWindow(ApplicationWindow):
 	def __init__(self, app):
@@ -621,7 +661,12 @@ class MainWindow(ApplicationWindow):
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.leftPane.add(self.historyView)
 
+
+		self.historyFilterComboBox = HistoryFilterComboBox()
+		# self.historyFilterComboBox.connect("changed", self.on_name_combo_changed)
+
 		self.leftPaneBox = VBox()
+		self.leftPaneBox.pack_start(self.historyFilterComboBox, expand=False, fill=True, padding=0)
 		self.leftPaneBox.pack_start(self.historySearchBar, expand=False, fill=True, padding=0)
 		self.leftPaneBox.pack_start(self.leftPane, expand=True, fill=True, padding=0)
 
@@ -658,6 +703,7 @@ class MainWindow(ApplicationWindow):
 		self.historyView.grab_focus()
 
 	def setDirPath(self, dirPath):
+		self.historyFilterComboBox.setDirPath(dirPath)
 		self.historyView.setDirPath(dirPath)
 		self.commitView.setDirPath(dirPath)
 		self.set_title("gitz - {}".format(dirPath))
@@ -738,7 +784,10 @@ class App(Gtk.Application):
 		self.timeit('show_all')
 
 		self.win.historyView.populate()
-		self.timeit('populate')
+		self.timeit('historyView.populate')
+
+		self.win.historyFilterComboBox.populate()
+		self.timeit('historyFilter.populate')
 
 	# Note: The docs mention it's (self, files, hints) but in reality it's (self, files, n_files, hints).
 	# The doc text mentions a n_files argument, but it's not mentioned in the argument list.

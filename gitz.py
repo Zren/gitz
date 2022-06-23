@@ -322,6 +322,8 @@ class HistoryView(MonospaceView):
 		self.currentFilter = ''
 		self.applyFilterTimer = 0
 		self.dirPath = None
+		self.fileFilter = None
+		self.branchFilter = '--all'
 
 	def initTags(self):
 		if self.tagsReady:
@@ -341,6 +343,14 @@ class HistoryView(MonospaceView):
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
 
+	def setBranchFilter(self, branchFilter):
+		self.branchFilter = branchFilter
+		self.populate()
+
+	def setFileFilter(self, fileFilter):
+		self.fileFilter = fileFilter
+		self.populate()
+
 	def populate(self):
 		self.timeit()
 		cmd = [
@@ -351,10 +361,12 @@ class HistoryView(MonospaceView):
 			'--oneline',
 			'--graph',
 			'--decorate',
-			'--all',
+			self.branchFilter,
 		]
 
-		if self.dirPath != None:
+		if not (self.fileFilter is None or self.fileFilter == ''):
+			cmd.append(self.fileFilter)
+		elif self.dirPath != None:
 			cmd.append(self.dirPath)
 
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
@@ -655,6 +667,7 @@ class HistoryBranchFilterComboBox(Gtk.ComboBoxText):
 		# print(lsBranchStdout)
 		self.timeit('process')
 
+		self.append_text('--all')
 		self.append_text('')
 		for line in lsBranchStdout.splitlines():
 			line = line.strip()
@@ -733,8 +746,10 @@ class MainWindow(ApplicationWindow):
 
 		self.branchFilterIcon = GtkIcon.new_from_icon_name('view-process-tree')
 		self.branchFilterComboBox = HistoryBranchFilterComboBox()
+		self.branchFilterComboBox.connect('changed', self.onBranchFilterChanged)
 		self.fileFilterIcon = GtkIcon.new_from_icon_name('text-plain')
 		self.fileFilterComboBox = HistoryFileFilterComboBox()
+		self.fileFilterComboBox.connect('changed', self.onFileFilterChanged)
 
 		self.filterRow = HBox()
 		self.filterRow.pack_start(self.branchFilterIcon, expand=False, fill=True, padding=0)
@@ -805,6 +820,14 @@ class MainWindow(ApplicationWindow):
 				pass
 			else:
 				self.close()
+
+	def onBranchFilterChanged(self, comboBox):
+		value = comboBox.get_active_text()
+		self.historyView.setBranchFilter(value)
+
+	def onFileFilterChanged(self, comboBox):
+		value = comboBox.get_active_text()
+		self.historyView.setFileFilter(value)
 
 	def onCommitViewShowAll(self, button):
 		self.commitView.showAll()

@@ -630,14 +630,18 @@ class TextSearchBar(SearchBar):
 		self.textView.grab_focus()
 		self.textView.clearAllMatches()
 
-class HistoryBranchFilterComboBox(Gtk.ComboBoxText):
+class HistoryFilterComboBox(Gtk.ComboBoxText):
 	def __init__(self):
 		super().__init__(has_entry=True)
 		self.dirPath = None
+		self.applyChangeTimer = 0
+		self.applyChangeCallback = None
 
 		# self.liststore = Gtk.ListStore(str, str)
 		# self.set_model(self.liststore)
 		# self.set_entry_text_column(1)
+
+		self.connect('changed', self.onChange)
 
 	def timeit(self, label=None, *args):
 		if label:
@@ -652,6 +656,24 @@ class HistoryBranchFilterComboBox(Gtk.ComboBoxText):
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
 
+	def resetApplyChangeTimer(self):
+		if self.applyChangeTimer != 0:
+			GLib.source_remove(self.applyChangeTimer)
+			self.applyChangeTimer = 0
+
+	def onChange(self, comboBox):
+		self.resetApplyChangeTimer()
+		self.applyChangeTimer = GLib.timeout_add(400, self.applyChange)
+
+	def applyChange(self):
+		if self.applyChangeCallback is not None:
+			value = self.get_active_text()
+			self.applyChangeCallback(value)
+
+	def populate(self):
+		raise NotImplemented()
+
+class HistoryBranchFilterComboBox(HistoryFilterComboBox):
 	def populate(self):
 		self.timeit()
 		cmd = [
@@ -660,6 +682,7 @@ class HistoryBranchFilterComboBox(Gtk.ComboBoxText):
 			cwdAbs,
 			'branch',
 			'--list',
+			'--all',
 			'--sort=-committerdate',
 		]
 		self.lsBranchProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
@@ -676,28 +699,7 @@ class HistoryBranchFilterComboBox(Gtk.ComboBoxText):
 			self.append_text(line)
 		self.timeit('append_text')
 
-class HistoryFileFilterComboBox(Gtk.ComboBoxText):
-	def __init__(self):
-		super().__init__(has_entry=True)
-		self.dirPath = None
-
-		# self.liststore = Gtk.ListStore(str, str)
-		# self.set_model(self.liststore)
-		# self.set_entry_text_column(1)
-
-	def timeit(self, label=None, *args):
-		if label:
-			t2 = time.time()
-			d = t2 - self.t
-			log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
-			self.t = t2
-		else:
-			self.t = time.time()
-			log()
-
-	def setDirPath(self, dirPath):
-		self.dirPath = dirPath
-
+class HistoryFileFilterComboBox(HistoryFilterComboBox):
 	def populate(self):
 		self.timeit()
 		cmd = [
@@ -746,10 +748,10 @@ class MainWindow(ApplicationWindow):
 
 		self.branchFilterIcon = GtkIcon.new_from_icon_name('view-process-tree')
 		self.branchFilterComboBox = HistoryBranchFilterComboBox()
-		self.branchFilterComboBox.connect('changed', self.onBranchFilterChanged)
+		self.branchFilterComboBox.applyChangeCallback = self.historyView.setBranchFilter
 		self.fileFilterIcon = GtkIcon.new_from_icon_name('text-plain')
 		self.fileFilterComboBox = HistoryFileFilterComboBox()
-		self.fileFilterComboBox.connect('changed', self.onFileFilterChanged)
+		self.fileFilterComboBox.applyChangeCallback = self.historyView.setFileFilter
 
 		self.filterRow = HBox()
 		self.filterRow.pack_start(self.branchFilterIcon, expand=False, fill=True, padding=0)

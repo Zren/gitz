@@ -55,10 +55,20 @@ class HPaned(Gtk.Paned):
 		elif isGtk(4):
 			self.set_end_child(child)
 
-class VBox(Gtk.Box):
+class GtkIcon:
+	@staticmethod
+	def new_from_icon_name(icon_name):
+		if isGtk(3):
+			# Gtk.ICON_SIZE_BUTTON
+			return Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+		elif isGtk(4):
+			return Gtk.Image.new_from_icon_name(icon_name)
+		else:
+			raise NotImplemented()
+
+class GtkBox(Gtk.Box):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args,
-			orientation=Gtk.Orientation.VERTICAL,
 			homogeneous=False,
 			**kwargs
 		)
@@ -69,6 +79,20 @@ class VBox(Gtk.Box):
 			child.set_vexpand(expand)
 			# child.set_fill(fill)
 			self.append(child)
+
+class HBox(GtkBox):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args,
+			orientation=Gtk.Orientation.HORIZONTAL,
+			**kwargs
+		)
+
+class VBox(GtkBox):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args,
+			orientation=Gtk.Orientation.VERTICAL,
+			**kwargs
+		)
 
 def GtkTextBuffer_parseTextIter(obj):
 	if isinstance(obj, Gtk.TextIter):
@@ -298,6 +322,8 @@ class HistoryView(MonospaceView):
 		self.currentFilter = ''
 		self.applyFilterTimer = 0
 		self.dirPath = None
+		self.fileFilter = None
+		self.branchFilter = '--all'
 
 	def initTags(self):
 		if self.tagsReady:
@@ -317,6 +343,14 @@ class HistoryView(MonospaceView):
 	def setDirPath(self, dirPath):
 		self.dirPath = dirPath
 
+	def setBranchFilter(self, branchFilter):
+		self.branchFilter = branchFilter
+		self.populate()
+
+	def setFileFilter(self, fileFilter):
+		self.fileFilter = fileFilter
+		self.populate()
+
 	def populate(self):
 		self.timeit()
 		cmd = [
@@ -327,10 +361,12 @@ class HistoryView(MonospaceView):
 			'--oneline',
 			'--graph',
 			'--decorate',
-			'--all',
+			self.branchFilter,
 		]
 
-		if self.dirPath != None:
+		if not (self.fileFilter is None or self.fileFilter == ''):
+			cmd.append(self.fileFilter)
+		elif self.dirPath != None:
 			cmd.append(self.dirPath)
 
 		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
@@ -594,6 +630,93 @@ class TextSearchBar(SearchBar):
 		self.textView.grab_focus()
 		self.textView.clearAllMatches()
 
+class HistoryBranchFilterComboBox(Gtk.ComboBoxText):
+	def __init__(self):
+		super().__init__(has_entry=True)
+		self.dirPath = None
+
+		# self.liststore = Gtk.ListStore(str, str)
+		# self.set_model(self.liststore)
+		# self.set_entry_text_column(1)
+
+	def timeit(self, label=None, *args):
+		if label:
+			t2 = time.time()
+			d = t2 - self.t
+			log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
+			self.t = t2
+		else:
+			self.t = time.time()
+			log()
+
+	def setDirPath(self, dirPath):
+		self.dirPath = dirPath
+
+	def populate(self):
+		self.timeit()
+		cmd = [
+			'git',
+			'-C',
+			cwdAbs,
+			'branch',
+			'--list',
+			'--sort=-committerdate',
+		]
+		self.lsBranchProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+		lsBranchStdout = self.lsBranchProcess.stdout
+		# print(lsBranchStdout)
+		self.timeit('process')
+
+		self.append_text('--all')
+		self.append_text('')
+		for line in lsBranchStdout.splitlines():
+			line = line.strip()
+			if line.startswith('* '): # selected
+				line = line[2:]
+			self.append_text(line)
+		self.timeit('append_text')
+
+class HistoryFileFilterComboBox(Gtk.ComboBoxText):
+	def __init__(self):
+		super().__init__(has_entry=True)
+		self.dirPath = None
+
+		# self.liststore = Gtk.ListStore(str, str)
+		# self.set_model(self.liststore)
+		# self.set_entry_text_column(1)
+
+	def timeit(self, label=None, *args):
+		if label:
+			t2 = time.time()
+			d = t2 - self.t
+			log("{} {}: {:.4f}s".format(self.__class__.__name__, label, d), *args)
+			self.t = t2
+		else:
+			self.t = time.time()
+			log()
+
+	def setDirPath(self, dirPath):
+		self.dirPath = dirPath
+
+	def populate(self):
+		self.timeit()
+		cmd = [
+			'git',
+			'-C',
+			cwdAbs,
+			'ls-files',
+		]
+		self.lsFilesProcess = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+		lsFilesStdout = self.lsFilesProcess.stdout
+		# print(lsFilesStdout)
+		self.timeit('process')
+
+		self.append_text('')
+		for line in lsFilesStdout.splitlines():
+			# self.append([line, line])
+			self.append_text(line)
+		self.timeit('append_text')
+
 
 class MainWindow(ApplicationWindow):
 	def __init__(self, app):
@@ -621,7 +744,21 @@ class MainWindow(ApplicationWindow):
 		self.leftPane.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 		self.leftPane.add(self.historyView)
 
+		self.branchFilterIcon = GtkIcon.new_from_icon_name('view-process-tree')
+		self.branchFilterComboBox = HistoryBranchFilterComboBox()
+		self.branchFilterComboBox.connect('changed', self.onBranchFilterChanged)
+		self.fileFilterIcon = GtkIcon.new_from_icon_name('text-plain')
+		self.fileFilterComboBox = HistoryFileFilterComboBox()
+		self.fileFilterComboBox.connect('changed', self.onFileFilterChanged)
+
+		self.filterRow = HBox()
+		self.filterRow.pack_start(self.branchFilterIcon, expand=False, fill=True, padding=0)
+		self.filterRow.pack_start(self.branchFilterComboBox, expand=True, fill=True, padding=0)
+		self.filterRow.pack_start(self.fileFilterIcon, expand=False, fill=True, padding=0)
+		self.filterRow.pack_start(self.fileFilterComboBox, expand=True, fill=True, padding=0)
+
 		self.leftPaneBox = VBox()
+		self.leftPaneBox.pack_start(self.filterRow, expand=False, fill=True, padding=0)
 		self.leftPaneBox.pack_start(self.historySearchBar, expand=False, fill=True, padding=0)
 		self.leftPaneBox.pack_start(self.leftPane, expand=True, fill=True, padding=0)
 
@@ -658,6 +795,8 @@ class MainWindow(ApplicationWindow):
 		self.historyView.grab_focus()
 
 	def setDirPath(self, dirPath):
+		self.branchFilterComboBox.setDirPath(dirPath)
+		self.fileFilterComboBox.setDirPath(dirPath)
 		self.historyView.setDirPath(dirPath)
 		self.commitView.setDirPath(dirPath)
 		self.set_title("gitz - {}".format(dirPath))
@@ -681,6 +820,14 @@ class MainWindow(ApplicationWindow):
 				pass
 			else:
 				self.close()
+
+	def onBranchFilterChanged(self, comboBox):
+		value = comboBox.get_active_text()
+		self.historyView.setBranchFilter(value)
+
+	def onFileFilterChanged(self, comboBox):
+		value = comboBox.get_active_text()
+		self.historyView.setFileFilter(value)
 
 	def onCommitViewShowAll(self, button):
 		self.commitView.showAll()
@@ -738,7 +885,13 @@ class App(Gtk.Application):
 		self.timeit('show_all')
 
 		self.win.historyView.populate()
-		self.timeit('populate')
+		self.timeit('historyView.populate')
+
+		self.win.branchFilterComboBox.populate()
+		self.timeit('branchFilterComboBox.populate')
+
+		self.win.fileFilterComboBox.populate()
+		self.timeit('fileFilterComboBox.populate')
 
 	# Note: The docs mention it's (self, files, hints) but in reality it's (self, files, n_files, hints).
 	# The doc text mentions a n_files argument, but it's not mentioned in the argument list.

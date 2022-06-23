@@ -14,54 +14,54 @@ except:
 	gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, Gio, GLib, Pango
 
-def isGtk(major):
-	return major == Gtk.get_major_version()
+isGtk3 = Gtk.get_major_version() == 3
+isGtk4 = Gtk.get_major_version() == 4
 
 cwd = os.getcwd()
 cwdAbs = os.path.abspath(os.path.expanduser(cwd))
 
 class SearchBar(Gtk.SearchBar):
 	def add(self, child):
-		if isGtk(3):
+		if isGtk3:
 			super().add(child)
-		elif isGtk(4):
+		elif isGtk4:
 			self.set_child(child)
 
 class ScrolledWindow(Gtk.ScrolledWindow):
 	def add(self, child):
-		if isGtk(3):
+		if isGtk3:
 			super().add(child)
-		elif isGtk(4):
+		elif isGtk4:
 			self.set_child(child)
 
 class ApplicationWindow(Gtk.ApplicationWindow):
 	def add(self, child):
-		if isGtk(3):
+		if isGtk3:
 			super().add(child)
-		elif isGtk(4):
+		elif isGtk4:
 			self.set_child(child)
 
 class HPaned(Gtk.Paned):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, orientation=Gtk.Orientation.HORIZONTAL, **kwargs)
 	def add1(self, child):
-		if isGtk(3):
+		if isGtk3:
 			super().add1(child)
-		elif isGtk(4):
+		elif isGtk4:
 			self.set_start_child(child)
 	def add2(self, child):
-		if isGtk(3):
+		if isGtk3:
 			super().add2(child)
-		elif isGtk(4):
+		elif isGtk4:
 			self.set_end_child(child)
 
 class GtkIcon:
 	@staticmethod
 	def new_from_icon_name(icon_name):
-		if isGtk(3):
+		if isGtk3:
 			# Gtk.ICON_SIZE_BUTTON
 			return Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
-		elif isGtk(4):
+		elif isGtk4:
 			return Gtk.Image.new_from_icon_name(icon_name)
 		else:
 			raise NotImplemented()
@@ -73,9 +73,9 @@ class GtkBox(Gtk.Box):
 			**kwargs
 		)
 	def pack_start(self, child, expand, fill, padding):
-		if isGtk(3):
+		if isGtk3:
 			super().pack_start(child, expand, fill, padding)
-		elif isGtk(4):
+		elif isGtk4:
 			child.set_vexpand(expand)
 			# child.set_fill(fill)
 			self.append(child)
@@ -160,7 +160,7 @@ class MonospaceView(Gtk.TextView):
 
 		textColor = Gdk.RGBA()
 		textColor.parse("#1abc9c")
-		if isGtk(3):
+		if isGtk3:
 			self.override_color(Gtk.StateFlags.NORMAL, textColor)
 
 		self.lineFormattedMap = {}
@@ -316,7 +316,7 @@ class MonospaceView(Gtk.TextView):
 class HistoryView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
-		if isGtk(3):
+		if isGtk3:
 			self.override_font(Pango.font_description_from_string('Monospace 10'))
 		self.logStdout = ''
 		self.currentFilter = ''
@@ -476,7 +476,7 @@ class CommitView(MonospaceView):
 	def __init__(self):
 		MonospaceView.__init__(self)
 		# self.set_wrap_mode(Gtk.WrapMode.WORD)
-		if isGtk(3):
+		if isGtk3:
 			self.override_font(Pango.font_description_from_string('Monospace 13'))
 		self.dirPath = None
 		self.currentSha = ''
@@ -490,7 +490,7 @@ class CommitView(MonospaceView):
 		viewBg = rgba("#2d2d2d") # Adwaita Dark
 
 		self.tag_commitstat = buf.create_tag("commitstat", foreground="#a6acb9") # Light Gray
-		if isGtk(3):
+		if isGtk3:
 			commitstatFg = self.tag_commitstat.get_property('foreground-rgba')
 			commitstatBg = lerpColor(viewBg, commitstatFg, 0.1)
 			self.tag_commitstat.set_property('paragraph-background', commitstatBg.to_string())
@@ -498,13 +498,13 @@ class CommitView(MonospaceView):
 		self.tag_statfilename = buf.create_tag("statfilename", weight=Pango.Weight.BOLD)
 
 		self.tag_oldline = buf.create_tag("oldline", foreground="#dca3a3") # Red / Color2
-		if isGtk(3):
+		if isGtk3:
 			oldlineFg = self.tag_oldline.get_property('foreground-rgba')
 			oldlineBg = lerpColor(viewBg, oldlineFg, 0.1)
 			self.tag_oldline.set_property('paragraph-background', oldlineBg.to_string())
 
 		self.tag_newline = buf.create_tag("newline", foreground="#72d5a3") # Green / Color3
-		if isGtk(3):
+		if isGtk3:
 			newlineFg = self.tag_newline.get_property('foreground-rgba')
 			newlineBg = lerpColor(viewBg, newlineFg, 0.1)
 			self.tag_newline.set_property('paragraph-background', newlineBg.to_string())
@@ -604,7 +604,7 @@ class TextSearchBar(SearchBar):
 		self.set_show_close_button(True)
 
 		self.entry = Gtk.SearchEntry()
-		if isGtk(3):
+		if isGtk3:
 			self.entry.set_placeholder_text('Search (Ctrl+F)')
 		self.entry.connect('activate', self.onSearchChanged)
 		self.entry.connect('stop-search', self.onStopSearch)
@@ -724,7 +724,7 @@ class MainWindow(ApplicationWindow):
 		self.set_title("gitz - {}".format(cwdAbs))
 		self.set_icon_name("git-gui")
 		self.set_default_size(1800, 720)
-		if isGtk(3):
+		if isGtk3:
 			self.set_position(Gtk.WindowPosition.CENTER)
 
 		# Force dark theme
@@ -788,7 +788,7 @@ class MainWindow(ApplicationWindow):
 		self.add(self.pane)
 
 		#---
-		if isGtk(3):
+		if isGtk3:
 			self.connect("key-press-event", self.onKeyPress)
 
 		#---
@@ -878,9 +878,9 @@ class App(Gtk.Application):
 			self.win.setDirPath(self.dirPath)
 		self.timeit('construct')
 
-		if isGtk(3):
+		if isGtk3:
 			self.win.show_all()
-		elif isGtk(4):
+		elif isGtk4:
 			self.win.present()
 		self.timeit('show_all')
 

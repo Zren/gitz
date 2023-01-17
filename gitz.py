@@ -374,6 +374,18 @@ class HistoryView(MonospaceView):
 		self.logStdout = process.stdout.strip()
 		self.timeit('strip')
 
+		cmd = [
+			'git',
+			'-C',
+			cwdAbs,
+			'remote',
+		]
+		process = subprocess.run(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+		self.timeit('remote.process')
+		self.remoteStdout = process.stdout.strip()
+		self.remoteList = self.remoteStdout.split('\n')
+		self.timeit('remote.strip')
+
 		self.setAndFormatText(self.logStdout)
 
 	def setAndFormatText(self, text):
@@ -436,11 +448,20 @@ class HistoryView(MonospaceView):
 				groupOffset = searchOffset + match.start(4)
 				for subMatch in re.finditer(r'(\(|, )(tag: .+?)(,|\))', match.group(4)):
 					applyTagForGroup(buf, subMatch, 2, self.tag_tag, searchOffset=groupOffset)
-				for subMatch in re.finditer(r'(\(|, )((HEAD ->) (.+?))(,|\))', match.group(4)):
-					applyTagForGroup(buf, subMatch, 3, self.tag_head, searchOffset=groupOffset)
-					applyTagForGroup(buf, subMatch, 4, self.tag_local, searchOffset=groupOffset)
-				for subMatch in re.finditer(r'(\(|, )([^\/]+)(,|\))', match.group(4)):
-					applyTagForGroup(buf, subMatch, 2, self.tag_local, searchOffset=groupOffset)
+				for subMatch in re.finditer(r'(\(|, )((HEAD -> )?([^,\)]+))', match.group(4)):
+					if subMatch.group(3) is not None:
+						applyTagForGroup(buf, subMatch, 3, self.tag_head, searchOffset=groupOffset)
+
+					refName = subMatch.group(4)
+					isRemote = False
+					for remoteName in self.remoteList:
+						if refName.startswith(remoteName + '/'):
+							isRemote = True
+							break
+					if isRemote:
+						applyTagForGroup(buf, subMatch, 4, self.tag_remote, searchOffset=groupOffset)
+					else:
+						applyTagForGroup(buf, subMatch, 4, self.tag_local, searchOffset=groupOffset)
 
 	#---
 	def applyFilter(self, newFilter):

@@ -332,9 +332,9 @@ class HistoryView(MonospaceView):
 		self.tag_graph = buf.create_tag("graph", foreground="#1abc9c") # Normal
 		self.tag_sha = buf.create_tag("sha", foreground="#dfaf8f") # Orange / Color4
 		self.tag_decorations = buf.create_tag("decorations", foreground="#dca3a3") # Red / Color2
-		self.tag_head = buf.create_tag("head", foreground="#93e0e3") # Cyan / Color7
-		self.tag_remote = buf.create_tag("remote", foreground="#dca3a3") # Red / Color2
-		self.tag_local = buf.create_tag("local", foreground="#72d5a3") # Green / Color3
+		self.tag_head = buf.create_tag("head", weight=Pango.Weight.BOLD, foreground="#93e0e3") # Cyan / Color7
+		self.tag_remote = buf.create_tag("remote", weight=Pango.Weight.BOLD, foreground="#dca3a3") # Red / Color2
+		self.tag_local = buf.create_tag("local", weight=Pango.Weight.BOLD, foreground="#72d5a3") # Green / Color3
 		self.tag_tag = buf.create_tag("tag", foreground="#f0dfaf") # Yellow / Color4
 		# self.tag_summary = buf.create_tag("summary", foreground="#1abc9c") # Normal
 		self.tag_selected = buf.create_tag("selected", weight=Pango.Weight.BOLD, foreground="#111111", background="#dfaf8f")

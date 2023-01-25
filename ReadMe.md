@@ -8,7 +8,13 @@ Closes with `Ctrl+W`, `Ctrl+Q`, or `Esc`. Arrow Keys select commits. `Tab` switc
 
 ## Installation
 
+```bash
+# OpenSUSE Dependencies
+zypper search --provides python3-gobject-Gdk
+sudo zypper install python310-gobject-Gdk
 ```
+
+```bash
 git clone https://github.com/Zren/gitz.git
 cd gitz
 chmod +x ./gitz.py
@@ -21,7 +27,7 @@ sudo cp ./gitz.py /usr/local/bin/gitz
 
 Run
 
-```
+```bash
 cd ~/kde/src/plasma-workspace
 gitz ./applets/digital-clock
 ```
@@ -29,7 +35,7 @@ gitz ./applets/digital-clock
 or
 
 
-```
+```bash
 cd ~/kde/src/plasma-workspace/applets/digital-clock
 gitz .
 ```
@@ -41,13 +47,13 @@ to only list commits from `./applets/digital-clock` in the history view, and onl
 
 Create `~/.config/sublime-text-3/Packages/User/gitz.py` with:
 
-```
+```bash
 subl ~/.config/sublime-text-3/Packages/User/gitz.py
 ```
 
 Then add the following code to run `gitz` when we call the `open_gitz` sublime command.
 
-```
+```py
 # Based on Terminal.py
 
 import sublime
@@ -86,6 +92,6 @@ class OpenGitzCommand(sublime_plugin.WindowCommand):
 
 Then open the Command Palette `Ctrl+Shift+P` and search for `Preferences: Key Bindings`. Paste the following shortcut to bind `Ctrl+Shift+K` to run the `open_gitz` command.
 
-```
+```json
 	, { "keys": ["ctrl+shift+k"], "command": "open_gitz" }
 ```

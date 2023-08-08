@@ -361,8 +361,10 @@ class HistoryView(MonospaceView):
 			'--oneline',
 			'--graph',
 			'--decorate',
-			self.branchFilter,
 		]
+
+		if not (self.branchFilter is None or self.branchFilter == ''):
+			cmd.append(self.branchFilter)
 
 		if not (self.fileFilter is None or self.fileFilter == ''):
 			cmd.append(self.fileFilter)

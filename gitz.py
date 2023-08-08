@@ -768,9 +768,11 @@ class MainWindow(ApplicationWindow):
 		self.leftPane.add(self.historyView)
 
 		self.branchFilterIcon = GtkIcon.new_from_icon_name('view-process-tree')
+		# self.branchFilterIcon.set_icon_size(Gtk.IconSize.LARGE)
 		self.branchFilterComboBox = HistoryBranchFilterComboBox()
 		self.branchFilterComboBox.applyChangeCallback = self.historyView.setBranchFilter
 		self.fileFilterIcon = GtkIcon.new_from_icon_name('text-plain')
+		# self.fileFilterIcon.set_icon_size(Gtk.IconSize.LARGE)
 		self.fileFilterComboBox = HistoryFileFilterComboBox()
 		self.fileFilterComboBox.applyChangeCallback = self.historyView.setFileFilter
 

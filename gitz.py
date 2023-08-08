@@ -20,6 +20,9 @@ isGtk4 = Gtk.get_major_version() == 4
 cwd = os.getcwd()
 cwdAbs = os.path.abspath(os.path.expanduser(cwd))
 
+class GitzConfig:
+	hideKdeSilentCommits = False
+
 class SearchBar(Gtk.SearchBar):
 	def add(self, child):
 		if isGtk3:
@@ -365,6 +368,10 @@ class HistoryView(MonospaceView):
 
 		if not (self.branchFilter is None or self.branchFilter == ''):
 			cmd.append(self.branchFilter)
+
+		if GitzConfig.hideKdeSilentCommits:
+			cmd.append('--grep=_SILENT')
+			cmd.append('--invert-grep')
 
 		if not (self.fileFilter is None or self.fileFilter == ''):
 			cmd.append(self.fileFilter)

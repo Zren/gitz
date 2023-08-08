@@ -838,12 +838,12 @@ class MainWindow(ApplicationWindow):
 	# https://docs.gtk.org/gtk4/class.EventControllerKey.html
 	# https://docs.gtk.org/gtk4/signal.EventControllerKey.key-pressed.html
 	def onKeyPressGtk4(self, controller, keyval, keycode, state, *args):
-		print("onKeyPressGtk4", 'controller', controller, 'keyval', keyval, 'keycode', keycode, 'state', state, 'args', *args)
+		# print("onKeyPressGtk4", 'controller', controller, 'keyval', keyval, 'keycode', keycode, 'state', state, 'args', *args)
 		self.onKeyPress(keyval, state)
 
 	def onKeyPress(self, keyval, state):
 		ctrl = (state & Gdk.ModifierType.CONTROL_MASK)
-		print("onKeyPress", ctrl, keyval)
+		# print("onKeyPress", ctrl, keyval)
 		if ctrl and keyval == 113: # Ctrl+Q
 			self.close()
 		elif ctrl and keyval == 119: # Ctrl+W

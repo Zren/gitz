@@ -235,7 +235,7 @@ class MonospaceView(Gtk.TextView):
 		lineTop = iterTop.get_line()
 		lineBottom = iterBottom.get_line()
 		# print("formatVisible", (lineTop, lineBottom), (r.x, r.y, r.width, r.height))
-		if lineTop == 0 and lineBottom == 0:
+		if lineTop == lineBottom:
 			# The TextView isn't ready yet.
 			self.scheduleFormatVisible(delay=20)
 		else:

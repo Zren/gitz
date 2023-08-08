@@ -812,7 +812,11 @@ class MainWindow(ApplicationWindow):
 
 		#---
 		if isGtk3:
-			self.connect("key-press-event", self.onKeyPress)
+			self.connect("key-press-event", self.onKeyPressGtk3)
+		elif isGtk4:
+			self.keyController = Gtk.EventControllerKey()
+			self.keyController.connect('key-pressed', self.onKeyPressGtk4, self)
+			self.add_controller(self.keyController)
 
 		#---
 		self.historyView.grab_focus()
@@ -824,19 +828,30 @@ class MainWindow(ApplicationWindow):
 		self.commitView.setDirPath(dirPath)
 		self.set_title("gitz - {}".format(dirPath))
 
-	def onKeyPress(self, widget, event, *args):
-		state = event.state
+	# https://docs.gtk.org/gtk3/signal.Widget.key-press-event.html
+	# https://docs.gtk.org/gdk3/struct.EventKey.html
+	def onKeyPressGtk3(self, widget, event, *args):
+		self.onKeyPress(event.keyval, event.state)
+
+	# https://docs.gtk.org/gtk4/class.EventControllerKey.html
+	# https://docs.gtk.org/gtk4/signal.EventControllerKey.key-pressed.html
+	def onKeyPressGtk4(self, controller, keyval, keycode, state, *args):
+		print("onKeyPressGtk4", 'controller', controller, 'keyval', keyval, 'keycode', keycode, 'state', state, 'args', *args)
+		self.onKeyPress(keyval, state)
+
+	def onKeyPress(self, keyval, state):
 		ctrl = (state & Gdk.ModifierType.CONTROL_MASK)
-		if ctrl and event.keyval == 113: # Ctrl+Q
+		print("onKeyPress", ctrl, keyval)
+		if ctrl and keyval == 113: # Ctrl+Q
 			self.close()
-		elif ctrl and event.keyval == 119: # Ctrl+W
+		elif ctrl and keyval == 119: # Ctrl+W
 			self.close()
-		elif ctrl and event.keyval == 102: # Ctrl+F
+		elif ctrl and keyval == 102: # Ctrl+F
 			if self.get_focus() == self.historyView:
 				self.historySearchBar.set_search_mode(True)
 			elif self.get_focus() == self.commitView:
 				self.commitSearchBar.set_search_mode(True)
-		elif event.keyval == 65307: # Esc
+		elif keyval == 65307: # Esc
 			if self.get_focus() == self.historySearchBar.entry:
 				pass
 			elif self.get_focus() == self.commitSearchBar.entry:

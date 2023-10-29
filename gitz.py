@@ -325,7 +325,7 @@ class HistoryView(MonospaceView):
 		self.currentFilter = ''
 		self.applyFilterTimer = 0
 		self.dirPath = None
-		self.fileFilter = None
+		self.fileFilter = ''
 		self.branchFilter = '--all'
 
 	def initTags(self):
@@ -752,10 +752,10 @@ class HistoryFileFilterComboBox(HistoryFilterComboBox):
 		# print(lsFilesStdout)
 		self.timeit('process')
 
-		self.append_text('')
+		self.append('', 'All Files')
 		for line in lsFilesStdout.splitlines():
 			# self.append([line, line])
-			self.append_text(line)
+			self.append(line, line)
 		self.timeit('append_text')
 
 
@@ -950,6 +950,7 @@ class App(Gtk.Application):
 		self.timeit('branchFilterComboBox.populate')
 
 		self.win.fileFilterComboBox.populate()
+		self.win.fileFilterComboBox.setInitActiveId('')
 		self.timeit('fileFilterComboBox.populate')
 
 	# Note: The docs mention it's (self, files, hints) but in reality it's (self, files, n_files, hints).

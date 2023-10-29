@@ -667,6 +667,7 @@ class HistoryFilterComboBox(Gtk.ComboBoxText):
 		self.dirPath = None
 		self.applyChangeTimer = 0
 		self.applyChangeCallback = None
+		self.ignoreChange = False
 
 		# self.liststore = Gtk.ListStore(str, str)
 		# self.set_model(self.liststore)
@@ -693,13 +694,20 @@ class HistoryFilterComboBox(Gtk.ComboBoxText):
 			self.applyChangeTimer = 0
 
 	def onChange(self, comboBox):
+		if self.ignoreChange:
+			return
 		self.resetApplyChangeTimer()
 		self.applyChangeTimer = GLib.timeout_add(400, self.applyChange)
 
 	def applyChange(self):
 		if self.applyChangeCallback is not None:
-			value = self.get_active_text()
+			value = self.get_active_id()
 			self.applyChangeCallback(value)
+
+	def setInitActiveId(self, active_id):
+		self.ignoreChange = True
+		self.set_active_id(active_id)
+		self.ignoreChange = False
 
 	def populate(self):
 		raise NotImplemented()
@@ -721,13 +729,13 @@ class HistoryBranchFilterComboBox(HistoryFilterComboBox):
 		# print(lsBranchStdout)
 		self.timeit('process')
 
-		self.append_text('--all')
-		self.append_text('')
+		self.append('HEAD', 'Current Branch (HEAD)')
+		self.append('--all', 'All Branches (--all)')
 		for line in lsBranchStdout.splitlines():
 			line = line.strip()
 			if line.startswith('* '): # selected
 				line = line[2:]
-			self.append_text(line)
+			self.append(line, line)
 		self.timeit('append_text')
 
 class HistoryFileFilterComboBox(HistoryFilterComboBox):
@@ -938,6 +946,7 @@ class App(Gtk.Application):
 		self.timeit('historyView.populate')
 
 		self.win.branchFilterComboBox.populate()
+		self.win.branchFilterComboBox.setInitActiveId(self.win.historyView.branchFilter)
 		self.timeit('branchFilterComboBox.populate')
 
 		self.win.fileFilterComboBox.populate()

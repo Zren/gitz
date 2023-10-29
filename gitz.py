@@ -424,15 +424,16 @@ class HistoryView(MonospaceView):
 		buf = self.get_buffer()
 		for match in LOG_PATTERN.finditer(self.getAllText()):
 			if match.group(4):
+				lineStart = match.start(0)
 				groupStart = match.start(4)
 				for subMatch in re.finditer(r'(\(|, )(HEAD)( -> (.+?))?(,|\))', match.group(4)):
-					start = groupStart + subMatch.start(0)
-					startIter = buf.get_iter_at_offset(start)
-					buf.place_cursor(startIter)
+
+					lineStartIter = buf.get_iter_at_offset(lineStart)
+					buf.place_cursor(lineStartIter)
 
 					# Scroll to cursor doesn't work this early it seems.
 					self.scroll_to_iter(
-						startIter,
+						lineStartIter,
 						within_margin=0.0,
 						use_align=True,
 						xalign=0.0, # Left Align
